@@ -170,8 +170,12 @@ namespace Packets {
       EquipDisplayFlags          = 0x0210, // updated 4.3
 
       WardInfo                   = 0x0224, // updated 4.3
+      WardNextInfo               = 0x0254, // updated 4.3
+      WardBuyHouse               = 0x0225, // updated 4.3
+      WardYardSpawn              = 0x0226, // updated 4.3
       WardHousingPermission      = 0x022D, // updated 4.3
       WardYardInfo               = 0x022F, // updated 4.3
+      WardYardMove               = 0x0233, // updated 4.3
 
       DuelChallenge              = 0x0277, // 4.2; this is responsible for opening the ui
       PerformNote                = 0x0286, // updated 4.3
