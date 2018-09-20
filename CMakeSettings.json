@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "x86-Debug",
-      "generator": "Visual Studio 14 2015",
+      "generator": "Visual Studio 15 2017",
       "configurationType": "Debug",
       "buildRoot": "${env.USERPROFILE}\\CMakeBuild\\${workspaceHash}\\build\\${name}",
       "cmakeCommandArgs": "-DCMAKE_BUILD_TYPE=\"Debug\"",
@@ -17,7 +17,7 @@
     },
     {
       "name": "x86-Release",
-      "generator": "Visual Studio 14 2015",
+      "generator": "Visual Studio 15 2017",
       "configurationType": "Release",
       "buildRoot": "${env.USERPROFILE}\\CMakeBuild\\${workspaceHash}\\build\\${name}",
       "cmakeCommandArgs": "",
@@ -31,7 +31,7 @@
     },
     {
       "name": "x64-Debug",
-      "generator": "Visual Studio 14 2015 Win64",
+      "generator": "Visual Studio 15 2017 Win64",
       "configurationType": "Debug",
       "buildRoot": "${env.USERPROFILE}\\CMakeBuild\\${workspaceHash}\\build\\${name}",
       "cmakeCommandArgs": "-DCMAKE_BUILD_TYPE=\"Debug\"",
@@ -45,7 +45,7 @@
     },
     {
       "name": "x64-Release",
-      "generator": "Visual Studio 14 2015 Win64",
+      "generator": "Visual Studio 15 2017 Win64",
       "configurationType": "Release",
       "buildRoot": "${env.USERPROFILE}\\CMakeBuild\\${workspaceHash}\\build\\${name}",
       "cmakeCommandArgs": "",
@@ -54,62 +54,6 @@
         {
           "name": "Boost_COMPILER",
           "value": "-vc140"
-        }
-      ]
-    },
-    {
-      "name": "x86-Debug",
-      "generator": "Visual Studio 15 2017",
-      "configurationType": "Debug",
-      "buildRoot": "${env.USERPROFILE}\\CMakeBuild\\${workspaceHash}\\build\\${name}",
-      "cmakeCommandArgs": "-DCMAKE_BUILD_TYPE=\"Debug\"",
-      "buildCommandArgs": "-m -v:minimal",
-      "variables": [
-        {
-          "name": "Boost_COMPILER",
-          "value": "-vc141"
-        }
-      ]
-    },
-    {
-      "name": "x86-Release",
-      "generator": "Visual Studio 15 2017",
-      "configurationType": "Release",
-      "buildRoot": "${env.USERPROFILE}\\CMakeBuild\\${workspaceHash}\\build\\${name}",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "-m -v:minimal",
-      "variables": [
-        {
-          "name": "Boost_COMPILER",
-          "value": "-vc141"
-        }
-      ]
-    },
-    {
-      "name": "x64-Debug",
-      "generator": "Visual Studio 15 2017 Win64",
-      "configurationType": "Debug",
-      "buildRoot": "${env.USERPROFILE}\\CMakeBuild\\${workspaceHash}\\build\\${name}",
-      "cmakeCommandArgs": "-DCMAKE_BUILD_TYPE=\"Debug\"",
-      "buildCommandArgs": "-m -v:minimal",
-      "variables": [
-        {
-          "name": "Boost_COMPILER",
-          "value": "-vc141"
-        }
-      ]
-    },
-    {
-      "name": "x64-Release",
-      "generator": "Visual Studio 15 2017 Win64",
-      "configurationType": "Release",
-      "buildRoot": "${env.USERPROFILE}\\CMakeBuild\\${workspaceHash}\\build\\${name}",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "-m -v:minimal",
-      "variables": [
-        {
-          "name": "Boost_COMPILER",
-          "value": "-vc141"
         }
       ]
     }
