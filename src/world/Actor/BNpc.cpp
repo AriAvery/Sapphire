@@ -76,11 +76,13 @@ using namespace Sapphire::World::Manager;
 
 BNpc::BNpc() : Npc( ObjKind::BattleNpc )
 {
+  m_maxHp = 0;
 }
 
 BNpc::BNpc( uint32_t id, std::shared_ptr< Common::BNpcCacheEntry > pInfo, const Territory& zone ) : Npc(
                                                                                                             ObjKind::BattleNpc )
 {
+  m_maxHp = 0;
   m_id = id;
   m_pInfo = pInfo;
   m_layoutId = pInfo->instanceId;
@@ -139,13 +141,8 @@ BNpc::BNpc( uint32_t id, std::shared_ptr< Common::BNpcCacheEntry > pInfo, const 
   m_timeOfDeath = 0;
   m_targetId = Common::INVALID_GAME_OBJECT_ID64;
 
-  m_maxHp = 500;
   m_maxMp = 200;
-  m_hp = m_maxHp;
   m_mp = 200;
-
-  if( m_level <= BnpcBaseHp.size() )
-    m_maxHp = BnpcBaseHp[ m_level - 1 ];
 
   m_state = BNpcState::Idle;
   m_status = ActorStatus::Idle;
@@ -202,6 +199,7 @@ BNpc::BNpc( uint32_t id, std::shared_ptr< Common::BNpcCacheEntry > pInfo, const 
 BNpc::BNpc( uint32_t id, std::shared_ptr< Common::BNpcCacheEntry > pInfo, const Territory& zone, uint32_t hp,
             Common::BNpcType type ) : Npc( ObjKind::BattleNpc )
 {
+  m_maxHp = hp;
   m_id = id;
   m_pInfo = pInfo;
   m_layoutId = pInfo->instanceId;
@@ -256,9 +254,7 @@ BNpc::BNpc( uint32_t id, std::shared_ptr< Common::BNpcCacheEntry > pInfo, const 
   m_timeOfDeath = 0;
   m_targetId = Common::INVALID_GAME_OBJECT_ID64;
 
-  m_maxHp = hp;
   m_maxMp = 200;
-  m_hp = m_maxHp;
   m_mp = 200;
 
   m_state = BNpcState::Idle;
@@ -413,16 +409,31 @@ uint32_t BNpc::getBNpcNameId() const
   return m_bNpcNameId;
 }
 
+void BNpc::prepareSpawnEffect()
+{
+  m_pendingSpawnEffect = std::make_unique< PendingSpawnEffect >();
+  m_pendingSpawnEffect->revealTime = Common::Util::getTimeMs() + 500;
+}
+
 void BNpc::spawn( PlayerPtr pTarget )
 {
   m_lastRoamTargetReachedTime = Common::Util::getTimeSeconds();
 
   auto& server = Common::Service< World::WorldServer >::ref();
-  server.queueForPlayer( pTarget->getCharacterId(), std::make_shared< NpcSpawnPacket >( *this, *pTarget ) );
+  auto packet = std::make_shared< NpcSpawnPacket >( *this, *pTarget );
+  if( m_pendingSpawnEffect && Common::Util::getTimeMs() < m_pendingSpawnEffect->revealTime &&
+      pTarget->isActorSpawnIdValid( packet->data().Index ) )
+  {
+    packet->data().Flag |= 0x20;
+    m_pendingSpawnEffect->characterIds.insert( pTarget->getCharacterId() );
+  }
+  server.queueForPlayer( pTarget->getCharacterId(), packet );
 }
 
 void BNpc::despawn( PlayerPtr pTarget )
 {
+  if( m_pendingSpawnEffect )
+    m_pendingSpawnEffect->characterIds.erase( pTarget->getCharacterId() );
   pTarget->freePlayerSpawnId( getId() );
   Network::Util::Packet::sendActorControlSelf( *pTarget, getId(), WarpStart, 4, getId(), 1 );
 }
@@ -841,6 +852,16 @@ void BNpc::onTick()
 
 void BNpc::update( uint64_t tickCount )
 {
+  if( m_pendingSpawnEffect && tickCount >= m_pendingSpawnEffect->revealTime )
+  {
+    for( const auto& player : m_inRangePlayers )
+    {
+      if( m_pendingSpawnEffect->characterIds.count( player->getCharacterId() ) )
+        Network::Util::Packet::sendActorControl( *player, getId(), SpawnEffect, isAlive() ? 1 : 0 );
+    }
+    m_pendingSpawnEffect.reset();
+  }
+
   Chara::update( tickCount );
 
   if( m_pController )
@@ -1372,7 +1393,8 @@ uint32_t BNpc::getLayoutId() const
 
 void BNpc::init()
 {
-  m_maxHp = Math::CalcStats::calculateMaxHp( *getAsChara() );
+  if( !m_maxHp )
+    m_maxHp = Math::CalcStats::calculateMaxHp( *this );
   m_hp = m_maxHp;
 
   m_lastRoamTargetReachedTime = Common::Util::getTimeSeconds();

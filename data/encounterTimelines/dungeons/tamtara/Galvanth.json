@@ -1,0 +1,149 @@
+{
+  "name": "Galvanth the Dominator",
+  "version": 30,
+  "actors": [
+    {
+      "id": 1,
+      "name": "Galvanth",
+      "type": "bnpc",
+      "layoutId": 1332316,
+      "hp": 6329,
+      "initialPhaseId": 1,
+      "subactors": [],
+      "phases": [
+        {
+          "id": 1,
+          "name": "Combat",
+          "onEnter": [
+            {
+              "id": 1,
+              "startTime": 0,
+              "type": "mechanic",
+              "description": "",
+              "data": {
+                "instance": "reinforcements",
+                "function": "begin",
+                "args": {
+                  "waves": [
+                    {
+                      "hpPercent": 80,
+                      "imps": [
+                        2029064
+                      ],
+                      "guards": []
+                    },
+                    {
+                      "hpPercent": 60,
+                      "imps": [
+                        2029064
+                      ],
+                      "guards": [
+                        1334975,
+                        1334968,
+                        1334967
+                      ]
+                    },
+                    {
+                      "hpPercent": 30,
+                      "imps": [
+                        2029064,
+                        2029065
+                      ],
+                      "guards": [
+                        1334976,
+                        1334970,
+                        1334969,
+                        2029118
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "onExit": [],
+          "triggers": [],
+          "schedules": [
+            {
+              "id": 1,
+              "name": "Water",
+              "description": "",
+              "loopCount": 1,
+              "loopType": "infinite",
+              "timepoints": [
+                {
+                  "id": 1,
+                  "startTime": 3200,
+                  "type": "castAction",
+                  "description": "",
+                  "data": {
+                    "sourceActor": "Galvanth",
+                    "actionId": 971,
+                    "targetType": "target",
+                    "selectorName": "<unset>",
+                    "selectorIndex": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "name": "Drain Touch",
+              "description": "",
+              "loopCount": 1,
+              "loopType": "infinite",
+              "timepoints": [
+                {
+                  "id": 1,
+                  "startTime": 14000,
+                  "type": "castAction",
+                  "description": "",
+                  "data": {
+                    "sourceActor": "Galvanth",
+                    "actionId": 988,
+                    "targetType": "target",
+                    "selectorName": "<unset>",
+                    "selectorIndex": 0
+                  }
+                },
+                {
+                  "id": 2,
+                  "type": "idle",
+                  "startTime": 26000,
+                  "description": "",
+                  "data": {}
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "Mind Blast",
+              "description": "",
+              "loopCount": 1,
+              "loopType": "none",
+              "timepoints": [
+                {
+                  "id": 1,
+                  "startTime": 74000,
+                  "type": "castAction",
+                  "description": "",
+                  "data": {
+                    "sourceActor": "Galvanth",
+                    "actionId": 987,
+                    "targetType": "self",
+                    "selectorName": "<unset>",
+                    "selectorIndex": 0
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selectors": [],
+  "mechanics": {
+    "reinforcements": "TamTaraReinforcements"
+  }
+}

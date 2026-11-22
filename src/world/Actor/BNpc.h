@@ -9,6 +9,7 @@
 #include <limits>
 #include <map>
 #include <queue>
+#include <set>
 #include <unordered_map>
 
 namespace Sapphire::Entity
@@ -81,6 +82,7 @@ namespace Sapphire::Entity
     bool setController( World::AI::Controller::ControllerUPtr pController );
     void detachController();
 
+    void prepareSpawnEffect();
     void spawn( PlayerPtr pTarget ) override;
     void despawn( PlayerPtr pTarget ) override;
 
@@ -247,6 +249,12 @@ namespace Sapphire::Entity
     Common::Vector3 m_lastPos;
     float m_lastRot;
     uint64_t m_lastPosUpdate{0};
+    struct PendingSpawnEffect
+    {
+      uint64_t revealTime;
+      std::set< uint64_t > characterIds;
+    };
+    std::unique_ptr< PendingSpawnEffect > m_pendingSpawnEffect;
 
     BNpcState m_state;
     HateList m_hateList;

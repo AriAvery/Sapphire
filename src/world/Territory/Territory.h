@@ -192,6 +192,7 @@ namespace Sapphire
     void addEObj( Entity::EventObjectPtr object );
 
     Entity::BNpcPtr createBNpcFromLayoutId( uint32_t levelId, uint32_t hp, Common::BNpcType bnpcType, uint32_t triggerOwnerId = 0, World::AI::Controller::ControllerUPtr pController = nullptr );
+    Entity::BNpcPtr createAnimatedBNpc( uint32_t layoutId, uint32_t hp, Common::BNpcType bnpcType );
     Entity::BNpcPtr createBNpcFromLayoutIdNoPush( uint32_t levelId, uint32_t hp, Common::BNpcType bnpcType, uint32_t triggerOwnerId = 0, World::AI::Controller::ControllerUPtr pController = nullptr );
 
     Entity::GameObjectPtr getEntityById( uint32_t entityId );
