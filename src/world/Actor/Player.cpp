@@ -719,11 +719,8 @@ void Player::spawn( Entity::PlayerPtr pTarget )
 // despawn
 void Player::despawn( Entity::PlayerPtr pTarget )
 {
-  const auto& pPlayer = pTarget;
   Logger::debug( "Despawning {0} for {1}", getName(), pTarget->getName() );
-
-  pPlayer->freePlayerSpawnId( getId() );
-  Network::Util::Packet::sendActorControlSelf( *this, pTarget->getId(), WarpStart, 4, getId(), 1 );
+  pTarget->freePlayerSpawnId( getId() );
 }
 
 GameObjectPtr Player::lookupTargetById( uint64_t targetId )

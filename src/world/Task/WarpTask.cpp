@@ -39,7 +39,8 @@ void WarpTask::execute()
   server.queueForPlayers( inRangePlayerIds, warpPacket );
   server.queueForPlayer( pPlayer->getCharacterId(), warpPacket );
 
-  pPlayer->setPos( m_warpInfo.m_targetPos, false );
+  pPlayer->setRot( m_warpInfo.m_targetRot );
+  pPlayer->Chara::setPos( m_warpInfo.m_targetPos );
 }
 
 std::string WarpTask::toString()
