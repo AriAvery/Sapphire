@@ -121,7 +121,8 @@ namespace Sapphire::World::AI::Controller
     if( m_pGambitPack )
       m_pGambitPack->update( *m_owner.getAsBNpc(), tick );
     */
-    m_owner.getAsBNpc()->checkAggro();
+    if( !std::dynamic_pointer_cast< Fsm::StateRetreat >( m_stateMachine.getCurrentState() ) )
+      m_owner.getAsBNpc()->checkAggro();
     Controller::update( tick );
   }
 

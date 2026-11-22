@@ -206,6 +206,8 @@ namespace Sapphire::Entity
     void toggleNameHidden( bool hidden ) override;
 
   private:
+    void updateFlags( uint32_t flags );
+
     uint32_t m_bNpcBaseId;
     uint32_t m_bNpcNameId;
     uint64_t m_weaponMain;

@@ -446,6 +446,13 @@ float BNpc::getCurrentSpeed() const
 
 bool BNpc::moveTo( const Vector3& pos, float targetReachedDist )
 {
+  if( targetReachedDist == std::numeric_limits< float >::max() )
+    targetReachedDist = getNaviTargetReachedDistance();
+
+  if( getAgentId() == -1 )
+    return Common::Util::distance2D( m_pos.x, m_pos.z, pos.x, pos.z ) <= targetReachedDist &&
+           std::fabs( m_pos.y - pos.y ) <= 2.5f;
+
   auto& teriMgr = Common::Service< World::Manager::TerritoryMgr >::ref();
   auto pZone = teriMgr.getTerritoryByGuId( getTerritoryId() );
 
@@ -456,9 +463,6 @@ bool BNpc::moveTo( const Vector3& pos, float targetReachedDist )
     Logger::error( "No NaviProvider for zone#{0} - {1}", pZone->getGuId(), pZone->getInternalName() );
     return false;
   }
-
-  if( targetReachedDist == std::numeric_limits< float >::max() )
-    targetReachedDist = getNaviTargetReachedDistance();
 
   auto pos1 = pNaviProvider->getAgentPos( getAgentId() );
 
@@ -755,7 +759,7 @@ void BNpc::hateListUpdatePlayers()
 
 void BNpc::aggro( const Sapphire::Entity::CharaPtr& pChara )
 {
-  if( !isAlive() )
+  if( !isAlive() || m_state == BNpcState::Retreat )
     return;
 
   auto& pRNGMgr = Common::Service< Common::Random::RNGMgr >::ref();
@@ -867,7 +871,7 @@ void BNpc::restHp()
 
 void BNpc::onActionHostile( CharaPtr pSource, int32_t aggro )
 {
-  if( !isAlive() )
+  if( !isAlive() || m_state == BNpcState::Retreat )
     return;
 
   hateListUpdate( pSource, aggro );
@@ -1198,87 +1202,50 @@ bool BNpc::hasFlag( uint32_t flag ) const
   return m_flags & flag;
 }
 
-void BNpc::resetFlags( uint32_t flags )
+void BNpc::updateFlags( uint32_t flags )
 {
-  uint32_t oldFlags = m_flags;
-  m_flags = 0;
-  m_flags |= flags;
+  const bool wasImmobile = hasFlag( Entity::Immobile );
+  m_flags = flags;
+  if( wasImmobile == hasFlag( Entity::Immobile ) )
+    return;
 
   auto& teriMgr = Common::Service< World::Manager::TerritoryMgr >::ref();
   auto pZone = teriMgr.getTerritoryByGuId( getTerritoryId() );
-
-
-  if( pZone && getAgentId() != -1 && ( oldFlags & Entity::Immobile ) != Entity::Immobile &&
-      ( m_flags & Entity::Immobile ) == Entity::Immobile )
-  {
-    Logger::debug( "{} {} Pathing deactivated", m_id, getAgentId() );
-    auto pNaviProvider = pZone->getNaviProvider();
+  auto pNaviProvider = pZone ? pZone->getNaviProvider() : nullptr;
+  if( pNaviProvider && getAgentId() != -1 )
     pNaviProvider->removeAgent( getAgentId() );
-    setPathingActive( false );
-  }
-  else if( pZone && ( oldFlags & Entity::Immobile ) == Entity::Immobile &&
-           ( m_flags & Entity::Immobile ) != Entity::Immobile )
-  {
-    Logger::debug( "{} Pathing activated", m_id );
-    auto pNaviProvider = pZone->getNaviProvider();
-    if( getAgentId() != -1 )
-      pNaviProvider->removeAgent( getAgentId() );
-    auto agentId = pNaviProvider->addAgent( getPos(), getRadius() );
-    setAgentId( agentId );
-    setPathingActive( true );
-  }
 
-  if( flags & BNpcFlag::Untargetable )
-    toggleNameHidden( true );
-  else
-    toggleNameHidden( false );
+  int32_t agentId = -1;
+  if( pNaviProvider && !hasFlag( Entity::Immobile ) )
+    agentId = pNaviProvider->addAgent( getPos(), getRadius(), getCurrentSpeed() );
+
+  setAgentId( agentId );
+  setPathingActive( agentId != -1 );
+}
+
+void BNpc::resetFlags( uint32_t flags )
+{
+  updateFlags( flags );
+  toggleNameHidden( hasFlag( BNpcFlag::Untargetable ) );
 }
 
 void BNpc::setFlag( uint32_t flag )
 {
-  uint32_t oldFlags = m_flags;
-  m_flags |= flag;
-
-  auto& teriMgr = Common::Service< World::Manager::TerritoryMgr >::ref();
-  auto pZone = teriMgr.getTerritoryByGuId( getTerritoryId() );
-
-
-  if( pZone && getAgentId() != -1 && ( oldFlags & Entity::Immobile ) != Entity::Immobile &&
-      ( m_flags & Entity::Immobile ) == Entity::Immobile )
-  {
-    Logger::debug( "{} {} Pathing deactivated", m_id, getAgentId() );
-    auto pNaviProvider = pZone->getNaviProvider();
-    pNaviProvider->removeAgent( getAgentId() );
-    setPathingActive( false );
-  }
-  else if( pZone && ( oldFlags & Entity::Immobile ) == Entity::Immobile &&
-           ( m_flags & Entity::Immobile ) != Entity::Immobile )
-  {
-    Logger::debug( "{} Pathing activated", m_id );
-    auto pNaviProvider = pZone->getNaviProvider();
-    if( getAgentId() != -1 )
-      pNaviProvider->removeAgent( getAgentId() );
-    auto agentId = pNaviProvider->addAgent( getPos(), getRadius() );
-    setAgentId( agentId );
-    setPathingActive( true );
-  }
-
+  updateFlags( m_flags | flag );
   if( flag & BNpcFlag::Untargetable )
     toggleNameHidden( true );
 }
 
 void BNpc::removeFlag( uint32_t flag )
 {
-  m_flags &= ~flag;
-
+  updateFlags( m_flags & ~flag );
   if( flag & BNpcFlag::Untargetable )
     toggleNameHidden( false );
 }
 
 void BNpc::clearFlags()
 {
-  m_flags = 0;
-  toggleNameHidden( false );
+  resetFlags( 0 );
 }
 
 void BNpc::autoAttack( CharaPtr pTarget )

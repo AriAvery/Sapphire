@@ -367,7 +367,7 @@ void Territory::pushActor( const Entity::GameObjectPtr& pActor )
       bool isRunning = state == Entity::BNpcState::Retreat || state == Entity::BNpcState::Combat;
       agentId = m_pNaviProvider->addAgent( pBNpc->getPos(), pBNpc->getRadius(), pBNpc->getCurrentSpeed() );
       pBNpc->setAgentId( agentId );
-      pBNpc->setPathingActive( true );
+      pBNpc->setPathingActive( agentId != -1 );
     }
     else
     {

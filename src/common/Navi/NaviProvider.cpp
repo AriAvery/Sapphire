@@ -966,31 +966,23 @@ void Sapphire::Common::Navi::NaviProvider::resetMoveTarget( int32_t naviAgentId 
 void Sapphire::Common::Navi::NaviProvider::setMoveTarget( int32_t naviAgentId,
                                                          const Sapphire::Common::Vector3& endPos )
 {
-  // Find nearest point on navmesh and set move request to that location.
-  dtNavMeshQuery* navquery = m_naviMeshQuery;
+  const auto* agent = m_pCrowd->getAgent( naviAgentId );
+  if( !agent || !agent->active )
+    return;
 
-  const dtQueryFilter* filter = m_pCrowd->getFilter( 0 );
-  const float* halfExtents = m_pCrowd->getQueryExtents();
-
+  const auto* filter = m_pCrowd->getFilter( agent->params.queryFilterType );
+  const auto* halfExtents = m_pCrowd->getQueryExtents();
   float p[ 3 ] = { endPos.x, endPos.y, endPos.z };
-
-  dtPolyRef ref;
-
+  dtPolyRef ref{};
   auto status = m_naviMeshQuery->findNearestPoly( p, halfExtents, filter, &ref, nullptr );
-
-  if( !dtStatusSucceed( status ) )
+  if( dtStatusFailed( status ) || !ref )
   {
     Logger::error( "Failed to find nearest poly for Chara-Agent#{} for pos X: {} Y: {} Z: {}",
                    naviAgentId, endPos.x, endPos.y, endPos.z );
-
     return;
   }
 
-  const dtCrowdAgent* ag = m_pCrowd->getAgent( naviAgentId );
-  if( ag && ag->active )
-  {
-    m_pCrowd->requestMoveTarget( naviAgentId, ref, p );
-  }
+  m_pCrowd->requestMoveTarget( naviAgentId, ref, p );
 }
 
 Sapphire::Common::Vector3 Sapphire::Common::Navi::NaviProvider::getAgentPos( int32_t naviAgentId )

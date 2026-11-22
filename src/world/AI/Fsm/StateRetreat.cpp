@@ -1,6 +1,6 @@
 #include "StateRetreat.h"
 #include "Actor/BNpc.h"
-#include "Logging/Logger.h"
+#include "AI/Controller/Controller.h"
 #include <Service.h>
 #include <Manager/TerritoryMgr.h>
 
@@ -11,11 +11,6 @@ using namespace Sapphire::World;
 
 void AI::Fsm::StateRetreat::onUpdate( Entity::GameObjectPtr& pEntity, uint64_t tickCount )
 {
-  auto elapsed = tickCount - m_lastTick;
-
-  if( elapsed < 2500 )
-    return;
-
   if( auto pBNpc = pEntity->getAsBNpc() )
   {
     auto& bnpc = *pBNpc;
@@ -25,19 +20,7 @@ void AI::Fsm::StateRetreat::onUpdate( Entity::GameObjectPtr& pEntity, uint64_t t
       bnpc.setRoamTargetReached( true );
       bnpc.setLastRoamTargetReachedTime( Common::Util::getTimeSeconds() );
     }
-    else
-    {
-      if( auto pController = bnpc.getController() )
-      {
-        auto& path = pController->getPath();
-        path.m_flags = static_cast< Controller::Controller::PathFlags >( Controller::Controller::IgnoreObstacles |
-                       Controller::Controller::IgnoreActorCollision );
-      }
-    }
-    if( bnpc.getHpPercent() < 100 )
-      bnpc.heal( bnpc.getMaxHp() / 10.f );
   }
-  m_lastTick = tickCount;
 }
 
 void AI::Fsm::StateRetreat::onEnter( Entity::GameObjectPtr& pEntity )
@@ -50,11 +33,15 @@ void AI::Fsm::StateRetreat::onEnter( Entity::GameObjectPtr& pEntity )
   {
     auto& bnpc = *pBNpc;
 
+    bnpc.setState( Entity::BNpcState::Retreat );
     bnpc.setRoamTargetReached( false );
     bnpc.setInvincibilityType( Common::InvincibilityType::InvincibilityIgnoreDamage );
 
-    if( pNaviProvider )
+    if( pNaviProvider && bnpc.getAgentId() != -1 )
+    {
+      pNaviProvider->updateAgentParameters( bnpc.getAgentId(), bnpc.getRadius(), true, bnpc.getRunSpeed(), true, true );
       pNaviProvider->setMoveTarget( bnpc.getAgentId(), bnpc.getSpawnPos() );
+    }
   }
 }
 
@@ -63,6 +50,17 @@ void AI::Fsm::StateRetreat::onExit( Entity::GameObjectPtr& pEntity )
   if( auto pBNpc = pEntity->getAsBNpc() )
   {
     auto& bnpc = *pBNpc;
+
+    bnpc.setState( Entity::BNpcState::Idle );
+    auto& teriMgr = Common::Service< World::Manager::TerritoryMgr >::ref();
+    auto pZone = teriMgr.getTerritoryByGuId( bnpc.getTerritoryId() );
+    if( pZone && pZone->getNaviProvider() && bnpc.getAgentId() != -1 )
+    {
+      auto flags = bnpc.getController()->getPath().m_flags;
+      pZone->getNaviProvider()->updateAgentParameters( bnpc.getAgentId(), bnpc.getRadius(), false, bnpc.getWalkSpeed(),
+                                                      flags & Controller::Controller::IgnoreActorCollision,
+                                                      flags & Controller::Controller::IgnoreObstacles );
+    }
 
     bnpc.setOwner( nullptr );
     bnpc.setRoamTargetReached( false );
