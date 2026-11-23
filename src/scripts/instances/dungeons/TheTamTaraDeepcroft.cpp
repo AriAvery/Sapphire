@@ -150,9 +150,8 @@ private:
     EncounterDefinition encounter{};
     encounter.key = "Galvanth";
     encounter.timeline = "dungeons/tamtara/Galvanth";
-    encounter.shape = EncounterShape::CYLINDER;
-    encounter.position = { -48.82916f, 14.04588f, -13.91929f };
-    encounter.position2 = { 30.f, 10.f, 0.f };
+    encounter.shape = EncounterShape::POLYGON;
+    encounter.shapeFileName = "dungeons/tamtara/Galvanth";
     encounter.participants = {
       { Galvanth, 6329, Common::BNpcType::Enemy, Entity::NoRoam | Entity::AutoAttackDisabled,
         EncounterBNpcCompletionRole::Required }

@@ -869,6 +869,7 @@ namespace Sapphire::World::Encounter
     }
 
     const auto& clippedHull2DJson = json.at( "clippedHull2D" );
+    m_hull.points.clear();
     for( const auto& v : clippedHull2DJson )
     {
       auto point = v.get< std::vector< float > >();
