@@ -9,7 +9,6 @@
 #include <limits>
 #include <map>
 #include <queue>
-#include <set>
 #include <unordered_map>
 
 namespace Sapphire::Entity
@@ -208,6 +207,8 @@ namespace Sapphire::Entity
     void toggleNameHidden( bool hidden ) override;
 
   private:
+    void updateSpawnEffect( uint64_t tickCount );
+
     uint32_t m_bNpcBaseId;
     uint32_t m_bNpcNameId;
     uint64_t m_weaponMain;
@@ -249,12 +250,7 @@ namespace Sapphire::Entity
     Common::Vector3 m_lastPos;
     float m_lastRot;
     uint64_t m_lastPosUpdate{0};
-    struct PendingSpawnEffect
-    {
-      uint64_t revealTime;
-      std::set< uint64_t > characterIds;
-    };
-    std::unique_ptr< PendingSpawnEffect > m_pendingSpawnEffect;
+    uint64_t m_spawnRevealTime{ 0 };
 
     BNpcState m_state;
     HateList m_hateList;

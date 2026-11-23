@@ -411,8 +411,7 @@ uint32_t BNpc::getBNpcNameId() const
 
 void BNpc::prepareSpawnEffect()
 {
-  m_pendingSpawnEffect = std::make_unique< PendingSpawnEffect >();
-  m_pendingSpawnEffect->revealTime = Common::Util::getTimeMs() + 500;
+  m_spawnRevealTime = Common::Util::getTimeMs() + 500;
 }
 
 void BNpc::spawn( PlayerPtr pTarget )
@@ -420,20 +419,15 @@ void BNpc::spawn( PlayerPtr pTarget )
   m_lastRoamTargetReachedTime = Common::Util::getTimeSeconds();
 
   auto& server = Common::Service< World::WorldServer >::ref();
+  updateSpawnEffect( Common::Util::getTimeMs() );
   auto packet = std::make_shared< NpcSpawnPacket >( *this, *pTarget );
-  if( m_pendingSpawnEffect && Common::Util::getTimeMs() < m_pendingSpawnEffect->revealTime &&
-      pTarget->isActorSpawnIdValid( packet->data().Index ) )
-  {
+  if( m_spawnRevealTime && pTarget->isActorSpawnIdValid( packet->data().Index ) )
     packet->data().Flag |= 0x20;
-    m_pendingSpawnEffect->characterIds.insert( pTarget->getCharacterId() );
-  }
   server.queueForPlayer( pTarget->getCharacterId(), packet );
 }
 
 void BNpc::despawn( PlayerPtr pTarget )
 {
-  if( m_pendingSpawnEffect )
-    m_pendingSpawnEffect->characterIds.erase( pTarget->getCharacterId() );
   pTarget->freePlayerSpawnId( getId() );
   Network::Util::Packet::sendActorControlSelf( *pTarget, getId(), WarpStart, 4, getId(), 1 );
 }
@@ -850,18 +844,22 @@ void BNpc::onTick()
   }
 }
 
+void BNpc::updateSpawnEffect( uint64_t tickCount )
+{
+  if( !m_spawnRevealTime || tickCount < m_spawnRevealTime )
+    return;
+
+  m_spawnRevealTime = 0;
+  for( const auto& player : m_inRangePlayers )
+  {
+    if( player->hasActorSpawned( getId() ) )
+      Network::Util::Packet::sendActorControl( *player, getId(), SpawnEffect, isAlive() ? 1 : 0 );
+  }
+}
+
 void BNpc::update( uint64_t tickCount )
 {
-  if( m_pendingSpawnEffect && tickCount >= m_pendingSpawnEffect->revealTime )
-  {
-    for( const auto& player : m_inRangePlayers )
-    {
-      if( m_pendingSpawnEffect->characterIds.count( player->getCharacterId() ) )
-        Network::Util::Packet::sendActorControl( *player, getId(), SpawnEffect, isAlive() ? 1 : 0 );
-    }
-    m_pendingSpawnEffect.reset();
-  }
-
+  updateSpawnEffect( tickCount );
   Chara::update( tickCount );
 
   if( m_pController )
