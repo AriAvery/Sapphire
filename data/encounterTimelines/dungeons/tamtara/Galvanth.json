@@ -175,6 +175,10 @@
                     "hateSource": {
                       "hateType": "encounterPlayers"
                     },
+                    "channeling": {
+                      "id": 1,
+                      "targetActor": "Galvanth"
+                    },
                     "group": "Wave 1 imps"
                   },
                   "id": 1
@@ -419,6 +423,10 @@
                     "spawnTimeline": 142,
                     "hateSource": {
                       "hateType": "encounterPlayers"
+                    },
+                    "channeling": {
+                      "id": 1,
+                      "targetActor": "Galvanth"
                     },
                     "group": "Wave 2 imps"
                   },
@@ -707,6 +715,10 @@
                     "hateSource": {
                       "hateType": "encounterPlayers"
                     },
+                    "channeling": {
+                      "id": 1,
+                      "targetActor": "Galvanth"
+                    },
                     "group": "Wave 3 imps"
                   },
                   "id": 1
@@ -721,6 +733,10 @@
                     "spawnTimeline": 142,
                     "hateSource": {
                       "hateType": "encounterPlayers"
+                    },
+                    "channeling": {
+                      "id": 1,
+                      "targetActor": "Galvanth"
                     },
                     "group": "Wave 3 imps"
                   },

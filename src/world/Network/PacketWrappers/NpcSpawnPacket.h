@@ -61,7 +61,8 @@ namespace Sapphire::Network::Packets::WorldPackets::Server
       // no idea ... m_data.spawnerId = Common::INVALID_GAME_OBJECT_ID64;
       m_data.ParentId = Common::INVALID_GAME_OBJECT_ID;
       m_data.TriggerId = bnpc.getTriggerOwnerId();
-      m_data.ChannelingTarget = Common::INVALID_GAME_OBJECT_ID;
+      m_data.Channeling = bnpc.getChanneling();
+      m_data.ChannelingTarget = bnpc.getChannelingTargetId();
       m_data.OwnerId = Common::INVALID_GAME_OBJECT_ID;
 
       //m_data.u23 = 0x04;

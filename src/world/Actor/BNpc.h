@@ -101,6 +101,10 @@ namespace Sapphire::Entity
 
     uint8_t getAggressionMode() const;
 
+    void setSpawnChanneling( uint8_t channel, uint32_t targetId );
+    uint8_t getChanneling() const;
+    uint32_t getChannelingTargetId() const;
+
     uint32_t getTriggerOwnerId() const;
     void setTriggerOwnerId( uint32_t triggerOwnerId );
 
@@ -226,6 +230,8 @@ namespace Sapphire::Entity
     uint32_t m_boundInstanceId;
     uint32_t m_layoutId;
     uint32_t m_triggerOwnerId;
+    uint32_t m_channelingTargetId{ Common::INVALID_GAME_OBJECT_ID };
+    uint8_t m_channeling{ 0 };
 
     uint32_t m_flags;
 

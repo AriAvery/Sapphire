@@ -346,6 +346,14 @@ namespace Sapphire::World::Encounter
         pSpawn->m_newInstance = newInstance;
         pSpawn->m_hp = dataJ.value( "hp", 100u );
         pSpawn->m_spawnTimeline = dataJ.value( "spawnTimeline", 0u );
+        if( auto it = dataJ.find( "channeling" ); it != dataJ.end() )
+        {
+          const auto id = it->at( "id" ).get< int >();
+          pSpawn->m_channelingTarget = it->at( "targetActor" ).get< std::string >();
+          if( id < 1 || id > 255 || !actors.count( pSpawn->m_channelingTarget ) )
+            throw std::runtime_error( "Invalid spawn channeling ID or target actor" );
+          pSpawn->m_channeling = static_cast< uint8_t >( id );
+        }
         pSpawn->m_revealDelay = dataJ.value( "revealDelay", 0u );
         pSpawn->m_group = dataJ.value( "group", std::string() );
         if( auto it = dataJ.find( "hateSource" ); it != dataJ.end() && !it->is_null() )
@@ -1030,6 +1038,13 @@ namespace Sapphire::World::Encounter
           pBNpc->setInvincibilityType( static_cast< Common::InvincibilityType >( pSpawnData->m_invincibilityType ) );
           if( !pSpawnData->m_newInstance )
             pBNpc->init();
+
+          if( pSpawnData->m_channeling )
+          {
+            auto target = pack.getBNpcByRef( pSpawnData->m_channelingTarget, pEncounter );
+            if( target && target->isAlive() )
+              pBNpc->setSpawnChanneling( pSpawnData->m_channeling, target->getId() );
+          }
 
           pEncounter->addBNpc( pBNpc, pEncounter->isLocked(), pSpawnData->m_group );
 

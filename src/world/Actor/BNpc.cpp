@@ -730,6 +730,22 @@ void BNpc::hateListRemove( const CharaPtr& pChara )
   }
 }
 
+void BNpc::setSpawnChanneling( uint8_t channel, uint32_t targetId )
+{
+  m_channeling = channel;
+  m_channelingTargetId = targetId;
+}
+
+uint8_t BNpc::getChanneling() const
+{
+  return m_channeling;
+}
+
+uint32_t BNpc::getChannelingTargetId() const
+{
+  return m_channelingTargetId;
+}
+
 uint32_t BNpc::getTriggerOwnerId() const
 {
   return m_triggerOwnerId;
@@ -908,6 +924,7 @@ void BNpc::onDeath()
   setTargetId( INVALID_GAME_OBJECT_ID64 );
   m_currentStance = Stance::Passive;
   m_state = BNpcState::Dead;
+  setSpawnChanneling( 0, INVALID_GAME_OBJECT_ID );
   m_timeOfDeath = Common::Util::getTimeSeconds();
   setOwner( nullptr );
 

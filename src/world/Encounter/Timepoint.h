@@ -293,6 +293,8 @@ namespace Sapphire::World::Encounter
     bool m_newInstance{ false };
     uint32_t m_hp{ 100 };
     uint32_t m_spawnTimeline{ 0 };
+    uint8_t m_channeling{ 0 };
+    std::string m_channelingTarget;
     uint32_t m_revealDelay{ 0 };
     enum class SpawnHate { None, EncounterPlayers, CopyEnmity, TopEnmity };
     SpawnHate m_hateType{ SpawnHate::None };
