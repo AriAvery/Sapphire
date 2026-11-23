@@ -9,6 +9,7 @@
 #include <regex>
 #include <optional>
 #include "commonshader.h"
+#include "../event_object_parser/EObjTimelines.h"
 #include "Exd/ExdData.h"
 #include "glm/vec2.hpp"
 #include "glm/vec3.hpp"
@@ -141,6 +142,12 @@ private:
   std::vector< uint32_t > m_zoneIds;
   std::unordered_map< uint32_t, std::unique_ptr< CachedZoneInfo > > m_cachedZones;
   std::vector< CachedZoneInfo * > m_filteredZones; // For search results
+
+  std::optional< EObjTimelines::Zone > m_timelineZone;
+  std::optional< EObjTimelines::Mapping > m_timelineMapping;
+  int m_timelineObject = -1;
+  char m_timelineFilter[128]{};
+  void showEObjTimelines();
 
   // UI state
   int m_selectedIndex = -1;

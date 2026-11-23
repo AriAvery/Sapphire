@@ -76,3 +76,21 @@ controls are escaped separately.
 
 The parser uses the Win32 sqpack reader. It was reproduced successfully against
 a 3.x installation (`ffxivgame.ver` 2016.07.05 and `ex1.ver` 2016.05.21).
+
+## Looking up an EObj timeline
+
+In Toolkit, open **Tools → Zones**, select a territory in the Zone Editor and expand
+**EObj timelines** in the zone details. Filter by object name, EObj base ID
+or layout instance ID, then select the placement. This view reads the selected
+territory directly from the configured game data and works in towns, fields
+and instances. It also shows the source layer, bound placement and SGB path.
+
+Each general slot shows its mask, SGB member ID and authored timeline name.
+For example, Tam-Tara layout `1958523` uses slot 0 (mask `0x0001`) for member
+6, `vf_beam2_on`, and slot 1 (mask `0x0002`) for member 5, `vf_beam2_off`.
+The same slot can select a different timeline on another object. A combined
+mask selects each of its set slots. The four visibility bindings have separate
+rows. **Other** lists timelines with no reference from those twenty bindings.
+**Unused** means the binding is zero. A missing member or layout asset has its
+own diagnostic. The generated instance scripts include the same slot and
+member information next to their EObj definitions.

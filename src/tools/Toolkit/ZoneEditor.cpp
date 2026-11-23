@@ -53,6 +53,7 @@
 #include "commonshader.h"
 
 #include <Util/Paths.h>
+#include <Util/Util.h>
 #include <fstream>
 #include <sstream>
 #include <filesystem>
@@ -1803,6 +1804,10 @@ void ZoneEditor::loadServerPaths()
 
 void ZoneEditor::onSelectionChanged()
 {
+  m_timelineZone.reset();
+  m_timelineMapping.reset();
+  m_timelineObject = -1;
+  m_timelineFilter[0] = 0;
   if( m_selectedZone )
   {
     clearArenaGenerationState();
@@ -5300,6 +5305,120 @@ void ZoneEditor::showZoneList()
   ImGui::EndChild();
 }
 
+void ZoneEditor::showEObjTimelines()
+{
+  auto& game = Engine::Service< xiv::dat::GameData >::ref();
+  if( !m_timelineZone )
+  {
+    try
+    {
+      auto& exd = Engine::Service< Sapphire::Data::ExdData >::ref();
+      m_timelineZone = EObjTimelines::readZone( game, exd, m_selectedZone->lvb );
+    }
+    catch( const std::exception& error )
+    {
+      m_timelineZone.emplace().errors.emplace_back( error.what() );
+    }
+  }
+
+  for( const auto& error : m_timelineZone->errors )
+    ImGui::TextWrapped( "%s", error.c_str() );
+  auto& objects = m_timelineZone->objects;
+  if( objects.empty() )
+  {
+    ImGui::TextDisabled( "No event object placements found." );
+    return;
+  }
+
+  ImGui::InputTextWithHint( "##eobjFilter", "Object name, base ID or layout ID", m_timelineFilter,
+                            sizeof( m_timelineFilter ) );
+  if( ImGui::BeginListBox( "##eobjPlacements", ImVec2( -1, ImGui::GetTextLineHeightWithSpacing() * 6 ) ) )
+  {
+    const auto filter = Sapphire::Common::Util::toLowerCopy( m_timelineFilter );
+    for( size_t i = 0; i < objects.size(); ++i )
+    {
+      auto& obj = objects[i];
+      auto label = fmt::format( "{}  [{} / {}]", obj.name, obj.baseId, obj.instanceId );
+      if( !filter.empty() && Sapphire::Common::Util::toLowerCopy( label ).find( filter ) == std::string::npos )
+        continue;
+      ImGui::PushID( static_cast< int >( i ) );
+      if( ImGui::Selectable( label.c_str(), m_timelineObject == static_cast< int >( i ) ) )
+      {
+        m_timelineObject = static_cast< int >( i );
+        m_timelineMapping.reset();
+        if( !obj.path.empty() )
+        {
+          try
+          {
+            auto file = game.getFile( obj.path );
+            m_timelineMapping = EObjTimelines::readMapping( file->access_data_sections().at( 0 ) );
+            obj.status.clear();
+          }
+          catch( const std::exception& error )
+          {
+            obj.status = error.what();
+          }
+        }
+      }
+      ImGui::PopID();
+    }
+    ImGui::EndListBox();
+  }
+  if( m_timelineObject < 0 )
+    return;
+
+  const auto& obj = objects[m_timelineObject];
+  ImGui::Text( "%s  [EObj %u / layout %u]", obj.name.c_str(), obj.baseId, obj.instanceId );
+  ImGui::TextWrapped( "%s", obj.layer.c_str() );
+  if( obj.boundId )
+    ImGui::Text( "Bound placement: %u", obj.boundId );
+  if( !obj.path.empty() )
+    ImGui::TextWrapped( "%s", obj.path.c_str() );
+  if( !obj.status.empty() )
+    ImGui::TextWrapped( "%s", obj.status.c_str() );
+  if( !m_timelineMapping || !ImGui::BeginTable( "##eobjTimelines", 4, ImGuiTableFlags_RowBg ) )
+    return;
+  ImGui::TableSetupColumn( "Slot / role" );
+  ImGui::TableSetupColumn( "Mask" );
+  ImGui::TableSetupColumn( "Member ID" );
+  ImGui::TableSetupColumn( "Timeline" );
+  ImGui::TableHeadersRow();
+
+  const auto& mapping = *m_timelineMapping;
+  std::set< uint32_t > assigned;
+  auto row = [&]( const std::string& role, const std::string& mask, uint32_t member )
+  {
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted( role.c_str() );
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted( mask.c_str() );
+    ImGui::TableNextColumn();
+    if( member )
+      ImGui::Text( "%u", member );
+    ImGui::TableNextColumn();
+    if( !member )
+      ImGui::TextDisabled( "Unused" );
+    else
+    {
+      assigned.insert( member );
+      auto it = mapping.names.find( member );
+      ImGui::TextUnformatted( it == mapping.names.end() ? "Unresolved member" : it->second.c_str() );
+    }
+  };
+  const auto& bindings = mapping.bindings;
+  for( unsigned slot = 0; slot < std::size( bindings.GeneralPurposeTimelineIDs ); ++slot )
+    row( std::to_string( slot ), fmt::format( "0x{:04X}", 1u << slot ), bindings.GeneralPurposeTimelineIDs[slot] );
+  row( "Showing", "", bindings.TimelineShowingID );
+  row( "Hiding", "", bindings.TimelineHidingID );
+  row( "Shown", "", bindings.TimelineShownID );
+  row( "Hidden", "", bindings.TimelineHiddenID );
+  for( const auto& [id, name] : mapping.names )
+    if( !assigned.count( id ) )
+      row( "Other", "", id );
+  ImGui::EndTable();
+}
+
 void ZoneEditor::showZoneDetails()
 {
   if( !m_selectedZone )
@@ -5316,6 +5435,9 @@ void ZoneEditor::showZoneDetails()
 
   if( ImGui::BeginChild( "ZoneDetails", ImVec2( 0, 0 ), false, ImGuiWindowFlags_HorizontalScrollbar ) )
   {
+    if( ImGui::CollapsingHeader( "EObj timelines" ) )
+      showEObjTimelines();
+
     // Basic Information
     if( ImGui::CollapsingHeader( "Basic Information", ImGuiTreeNodeFlags_DefaultOpen ) )
     {

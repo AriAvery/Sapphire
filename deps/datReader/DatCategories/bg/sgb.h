@@ -132,7 +132,7 @@ struct SGB_FILE
   Scene_t scene;
   SceneSettings_t sceneSettings;
   LayerGroup layerGroup;
-  SGTimelineFolder_t sgTimelineFolder;
+  SGTimelineFolder_t sgTimelineFolder{};
   std::vector< SGTimeline_t > timelines;
   std::vector< std::string > timelineNames;
   std::vector< Layer > layers;
@@ -144,7 +144,8 @@ struct SGB_FILE
     constexpr int baseOffset = 0x14;
     header = *reinterpret_cast< SGB_HEADER * >( buf );
     scene = *reinterpret_cast< Scene_t * >( buf + sizeof( SGB_HEADER ) );
-    sgTimelineFolder = *reinterpret_cast< SGTimelineFolder_t * >( buf + sizeof( SGB_HEADER ) + scene.SGTimelineFolder );
+    if( scene.SGTimelineFolder )
+      sgTimelineFolder = *reinterpret_cast< SGTimelineFolder_t * >( buf + sizeof( SGB_HEADER ) + scene.SGTimelineFolder );
     sceneSettings = *reinterpret_cast< SceneSettings_t * >( buf + sizeof( SGB_HEADER ) + scene.Settings );
     layerGroup = *reinterpret_cast< LayerGroup * >( buf + sizeof( SGB_HEADER ) + scene.LayerGroups );
 

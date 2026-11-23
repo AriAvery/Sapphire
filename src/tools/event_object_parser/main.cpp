@@ -4,7 +4,7 @@
 #include <iostream>
 #include <chrono>
 #include <fstream>
-#include <regex>
+#include <iterator>
 #include <map>
 #include <vector>
 #include <set>
@@ -30,6 +30,7 @@
 
 #include <filesystem>
 
+#include "EObjTimelines.h"
 #include "vec3.h"
 #include "matrix4.h"
 
@@ -316,6 +317,60 @@ float composeCollisionRotation( const vec3& parentRotation, const vec3& localRot
   return directionFromForward( forward );
 }
 
+std::string describeTimelineBindings( const EObjTimelines::Mapping& mapping )
+{
+  const auto& bindings = mapping.bindings;
+  const auto& names = mapping.names;
+  std::string result;
+  std::set< uint32_t > referenced;
+  auto describeMember = [&]( const std::string& role, uint32_t id )
+  {
+    if( !id )
+      return;
+    referenced.insert( id );
+    auto it = names.find( id );
+    const auto name = it == names.end() ? "<unresolved>" : escapeCppString( it->second );
+    result += fmt::format( "    // {} -> {} (member {})\n", role, name, id );
+  };
+
+  std::string unused;
+  for( size_t slot = 0; slot < std::size( bindings.GeneralPurposeTimelineIDs ); ++slot )
+  {
+    const auto member = bindings.GeneralPurposeTimelineIDs[ slot ];
+    if( member )
+      describeMember( fmt::format( "Slot {} (mask 0x{:04X})", slot, 1u << slot ), member );
+    else
+    {
+      if( !unused.empty() )
+        unused += ", ";
+      unused += std::to_string( slot );
+    }
+  }
+  if( referenced.empty() )
+    result += "    // General slots 0-15 unused\n";
+  else if( !unused.empty() )
+    result += "    // Unused general slots: " + unused + "\n";
+
+  describeMember( "Showing", bindings.TimelineShowingID );
+  describeMember( "Hiding", bindings.TimelineHidingID );
+  describeMember( "Shown", bindings.TimelineShownID );
+  describeMember( "Hidden", bindings.TimelineHiddenID );
+  for( const auto& [ id, name ] : names )
+    if( !referenced.count( id ) )
+      result += fmt::format( "    // Other timeline -> {} (member {})\n", escapeCppString( name ), id );
+  return result;
+}
+
+void replaceTemplateToken( std::string& text, const std::string& token, const std::string& replacement )
+{
+  size_t pos = 0;
+  while( ( pos = text.find( token, pos ) ) != std::string::npos )
+  {
+    text.replace( pos, token.size(), replacement );
+    pos += replacement.size();
+  }
+}
+
 int main( int argc, char* argv[] )
 {
   auto startTime = std::chrono::system_clock::now();
@@ -474,7 +529,6 @@ int main( int argc, char* argv[] )
 
               eobjlevelHierachyId = pEobj->header.BoundInstanceID;
 
-              std::string states = "";
               std::string gimmickName = "";
               for( const auto& pEntry1 : group.entries )
               {
@@ -482,13 +536,6 @@ int main( int argc, char* argv[] )
                 if( pGObj->getType() == eAssetType::SharedGroup && pGObj->header.InstanceID == pEobj->header.BoundInstanceID )
                 {
                   auto pGObjR = reinterpret_cast< SharedGroupEntry* >( pGObj );
-                  char* dataSection = nullptr;
-
-                  auto file = g_gameData->getFile( pGObjR->AssetPath );
-                  auto sections = file->get_data_sections();
-                  dataSection = &sections.at( 0 )[ 0 ];
-                  auto sgbFile = SGB_FILE( &dataSection[ 0 ] );
-
                   auto pos = pGObjR->AssetPath.find_last_of( "/" );
 
                   if( pos != std::string::npos )
@@ -498,17 +545,6 @@ int main( int argc, char* argv[] )
                     gimmickName = name;
                   }
 
-                  if( sgbFile.timelines.size() > 0 )
-                  {
-                    states = "    // States -> ";
-                    for( auto i = 0; i < sgbFile.timelines.size(); ++i )
-                    {
-                      auto entries1 = sgbFile.timelines[ i ];
-                      auto name = sgbFile.timelineNames[ i ];
-                      states += name + " (id: " + std::to_string( entries1.MemberID ) + ") ";
-                    }
-                    states += "\n";
-                  }
                   break;
                 }
               }
@@ -553,7 +589,7 @@ int main( int argc, char* argv[] )
                           ", " + "{ " + std::to_string( pObj->header.Transformation.Translation.x ) + "f, " + std::to_string( pObj->header.Transformation.Translation.y ) + "f, " + std::to_string( pObj->header.Transformation.Translation.z ) + "f }, " + std::to_string( pObj->header.Transformation.Scale.x ) + "f, "
 
                           // the rotation inside the sgbs is the inverse of what the game uses
-                          + std::to_string( toGameYaw( pObj->header.Transformation.Rotation.y ) ) + "f" + ", " + std::to_string( permissionInv ) + " );\n" + states;
+                          + std::to_string( toGameYaw( pObj->header.Transformation.Rotation.y ) ) + "f" + ", " + std::to_string( permissionInv ) + " );\n";
 
               m_eventObjectStrings.emplace( instanceId, eobjLine );
               m_eventObjectMap.emplace( instanceId, pEobj );
@@ -563,36 +599,53 @@ int main( int argc, char* argv[] )
 	      Logger::info( "Total Groups {}, Total Entries {}", totalGroups, totalGroupEntries );
       }
      
-      // gather dynamic collisions controlled by eobj
+      // Resolve bindings after collecting placements from all loaded layers.
       for( auto [ instanceId, object ] : m_eventObjectMap )
       {
-
-        if( object->header.BoundInstanceID != 0 )
+        auto& eobjLine = m_eventObjectStrings.at( instanceId );
+        const auto boundId = object->header.BoundInstanceID;
+        const SharedGroupEntry* pBoundGroup = nullptr;
+        std::string path;
+        try
         {
-          auto pBoundGroup = m_sharedGroupMap[ object->header.BoundInstanceID ];
-          if( !pBoundGroup )
-            continue;
-
-          std::cout << "Found BoundInstanceID " << object->header.BoundInstanceID << " to " << object->header.BaseId << "\n";
-          std::cout << "\t " << pBoundGroup->AssetPath << "\n";
-
-          if( auto pSgbFile = g_gameData->getFile( pBoundGroup->AssetPath ) )
+          if( boundId )
           {
-            auto sgbFile = SGB_FILE( pSgbFile->access_data_sections().at( 0 ).data() );
-            int memberIdx = 0;
+            auto it = m_sharedGroupMap.find( boundId );
+            if( it == m_sharedGroupMap.end() )
+            {
+              eobjLine += fmt::format( "    // Unresolved shared-group binding {}\n", boundId );
+              continue;
+            }
+            pBoundGroup = it->second;
+            path = pBoundGroup->AssetPath;
+          }
+          else
+          {
+            path = EObjTimelines::exportedPath( g_exdData, object->header.BaseId );
+            if( path.empty() )
+            {
+              eobjLine += "    // No shared group or general timeline slots\n";
+              continue;
+            }
+          }
 
+          auto file = g_gameData->getFile( path );
+          auto& section = file->access_data_sections().at( 0 );
+          if( section.size() < sizeof( SGB_HEADER ) + sizeof( Scene_t ) )
+            throw std::runtime_error( "Missing SGB scene" );
+          const auto description = "    // SGB: " + path + "\n" + describeTimelineBindings( EObjTimelines::readMapping( section ) );
+          eobjLine += description;
+          std::cout << "EObj " << object->header.BaseId << " (layout " << instanceId << ")\n" << description;
+          if( pBoundGroup )
+          {
+            SGB_FILE sgbFile( section.data() );
+            int memberIdx = 0;
             for( auto& [ layerId, layers ] : sgbFile.layerInstanceObjects )
             {
               for( auto& instanceObject : layers )
               {
                 if( instanceObject->getType() == CollisionBox )
                 {
-                  auto eobjLineIt = m_eventObjectStrings.find( instanceId );
-                  if( eobjLineIt == m_eventObjectStrings.end() )
-                    continue;
-
-                  auto& eobjLine = eobjLineIt->second;
-
                   auto collisionBox = static_cast< CollisionBoxEntry* >( instanceObject.get() );
                   const char* shapeStr = "Unknown";
 
@@ -678,6 +731,11 @@ int main( int argc, char* argv[] )
             }
           }
         }
+        catch( const std::exception& e )
+        {
+          Logger::warn( "EObj {} layout {}: {} ({})", object->header.BaseId, instanceId, e.what(), path );
+          eobjLine += fmt::format( "    // Unresolved SGB data: {} ({})\n", e.what(), path );
+        }
       }
 
       // append all strings to the main eobj string
@@ -701,13 +759,11 @@ int main( int argc, char* argv[] )
     else
       t = std::ifstream ( "instance.tmpl" );
 
-    std::string instanceTpl( ( std::istreambuf_iterator< char >( t ) ),
-                             std::istreambuf_iterator< char >() );
-
-    auto result = std::regex_replace( instanceTpl, std::regex( "\\INSTANCE_NAME" ), entry.name );
-    result = std::regex_replace( result, std::regex( "\\INSTANCE_ID" ), std::to_string( entry.id ) );
-    result = std::regex_replace( result, std::regex( "\\EOBJ_INIT" ), eobjects );
-    result = std::regex_replace( result, std::regex( "\\POPRANGE" ), popranges );
+    std::string result( ( std::istreambuf_iterator< char >( t ) ), std::istreambuf_iterator< char >() );
+    replaceTemplateToken( result, "INSTANCE_NAME", entry.name );
+    replaceTemplateToken( result, "INSTANCE_ID", std::to_string( entry.id ) );
+    replaceTemplateToken( result, "POPRANGE", popranges );
+    replaceTemplateToken( result, "EOBJ_INIT", eobjects );
 
     if( entry.type == 7 )
     {
@@ -727,7 +783,7 @@ int main( int argc, char* argv[] )
                        std::to_string( qb->data().Define[i].DefineValue ) + ";\n";
       }
 
-      result = std::regex_replace( result, std::regex( "\\SCRIPT_INSTRUCTIONS" ), instruction );
+      replaceTemplateToken( result, "SCRIPT_INSTRUCTIONS", instruction );
     }
 
     std::string subdir = "";
