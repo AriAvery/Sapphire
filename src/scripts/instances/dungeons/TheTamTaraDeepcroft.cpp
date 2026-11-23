@@ -33,13 +33,12 @@ private:
     uint32_t placeName;
     uint32_t seal;
     uint32_t marker;
-    EncounterShape shape;
   };
 
   static constexpr std::array< Altar, 3 > Altars = {{
-    { "Altar1", { 1334952, 1334953, 1334954 }, 3859972, 535, 2001699, 2001700, EncounterShape::POLYGON },
-    { "Altar2", { 1334955, 1334956, 1334957, 1334959 }, 3859980, 539, 2001701, 2001702, EncounterShape::POLYGON },
-    { "Altar3", { 1334960, 1334961, 1334962, 1334963, 1334965 }, 3859984, 541, 2001703, 2001704, EncounterShape::BOX }
+    { "Altar1", { 1334952, 1334953, 1334954 }, 3859972, 535, 2001699, 2001700 },
+    { "Altar2", { 1334955, 1334956, 1334957, 1334959 }, 3859980, 539, 2001701, 2001702 },
+    { "Altar3", { 1334960, 1334961, 1334962, 1334963, 1334965 }, 3859984, 541, 2001703, 2001704 }
   }};
   static constexpr std::array< uint32_t, 4 > RosaryGuards = { 2373665, 2373666, 2373667, 2380947 };
   static constexpr std::array< uint32_t, 4 > OrbIds = { 2000061, 2000062, 2000063, 2000067 };
@@ -83,14 +82,8 @@ private:
     EncounterDefinition def{};
     def.key = altar.key;
     def.timeline = "dungeons/tamtara/" + def.key;
-    def.shape = altar.shape;
-    if( def.shape == EncounterShape::BOX )
-    {
-      def.position = { -104.f, 12.f, -3.f };
-      def.position2 = { -81.f, 18.f, 44.3171f };
-    }
-    else
-      def.shapeFileName = def.timeline;
+    def.shape = EncounterShape::POLYGON;
+    def.shapeFileName = def.timeline;
 
     for( auto layoutId : altar.guards )
       def.participants.push_back( { layoutId, layoutId == *altar.guards.begin() ? 516u : 577u,
