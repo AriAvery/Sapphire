@@ -69,7 +69,6 @@ namespace Sapphire::Network::ActorControl
     Unk3 = 0x20,                  // Animation related?
 
     CreateLockon = 0x22,
-    CombatIndicationShow = CreateLockon,
 
     SpawnEffect = 0x25,
     ToggleInvisible = 0x26,
