@@ -40,24 +40,20 @@ namespace Sapphire::World::Encounter
     return false;
   };
 
-  void ConditionBNpcsDefeated::from_json( nlohmann::json& json, ConditionType condition,
+  void ConditionEncounterGroupDefeated::from_json( nlohmann::json& json, ConditionType condition,
                                           const std::unordered_map< std::string, TimelineActor >& actors )
   {
     TriggerCondition::from_json( json, condition, actors );
-    m_layoutIds = json.at( "paramData" ).at( "layoutIds" ).get< std::vector< uint32_t > >();
-    if( m_layoutIds.empty() )
-      throw std::runtime_error( "bnpcsDefeated requires at least one layout ID" );
+    const auto& params = json.at( "paramData" );
+    m_group = params.at( "group" ).get< std::string >();
+    m_count = params.at( "count" ).get< uint32_t >();
+    if( m_group.empty() || !m_count )
+      throw std::runtime_error( "An encounter group requires a name and a positive participant count" );
   }
 
-  bool ConditionBNpcsDefeated::isConditionMet( PhaseState& state, TimelinePack& pack, EncounterPtr pEncounter, uint64_t time ) const
+  bool ConditionEncounterGroupDefeated::isConditionMet( PhaseState& state, TimelinePack& pack, EncounterPtr pEncounter, uint64_t time ) const
   {
-    for( auto layoutId : m_layoutIds )
-    {
-      auto pBNpc = pEncounter->getBNpc( layoutId );
-      if( !pBNpc || pBNpc->isAlive() )
-        return false;
-    }
-    return true;
+    return pEncounter->areParticipantsDefeated( m_group, m_count );
   }
 
   bool ConditionDirectorVar::isConditionMet( PhaseState& state, TimelinePack& pack, EncounterPtr pEncounter, uint64_t time ) const

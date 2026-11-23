@@ -81,7 +81,8 @@ namespace Sapphire::Entity
     bool setController( World::AI::Controller::ControllerUPtr pController );
     void detachController();
 
-    void prepareSpawnEffect();
+    bool isAwaitingSpawnReveal() const;
+    void setAwaitingSpawnReveal( bool pending );
     void spawn( PlayerPtr pTarget ) override;
     void despawn( PlayerPtr pTarget ) override;
 
@@ -124,6 +125,7 @@ namespace Sapphire::Entity
 
     const HateList& getHateList() const;
     void hateListClear();
+    void copyHateList( const BNpc& source );
     uint32_t hateListGetValue( const Sapphire::Entity::CharaPtr& pChara );
     uint32_t hateListGetHighestValue();
     CharaPtr hateListGetHighest();
@@ -207,7 +209,6 @@ namespace Sapphire::Entity
     void toggleNameHidden( bool hidden ) override;
 
   private:
-    void updateSpawnEffect( uint64_t tickCount );
 
     uint32_t m_bNpcBaseId;
     uint32_t m_bNpcNameId;
@@ -250,9 +251,10 @@ namespace Sapphire::Entity
     Common::Vector3 m_lastPos;
     float m_lastRot;
     uint64_t m_lastPosUpdate{0};
-    uint64_t m_spawnRevealTime{ 0 };
+    bool m_awaitingSpawnReveal{ false };
 
     BNpcState m_state;
+    void insertHateEntry( const CharaPtr& pChara, uint32_t hateAmount );
     HateList m_hateList;
     bool m_canSwapTarget{ true };
 

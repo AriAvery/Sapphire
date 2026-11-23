@@ -24,7 +24,7 @@ namespace Sapphire::World::Encounter
 
     Type m_type;
     uint32_t m_phaseId;
-    std::vector< Timepoint > m_timepoints;
+    Timepoint m_timepoint;
   };
 
   class Trigger : public std::enable_shared_from_this< Trigger >

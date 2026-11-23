@@ -102,7 +102,8 @@ namespace Sapphire::Network::Packets::WorldPackets::Server
 
       if( !target.isActorSpawnIdValid( m_data.Index ) )
         return;
-      // 0x20 == spawn hidden to be displayed by the spawneffect control
+      if( bnpc.isAwaitingSpawnReveal() )
+        m_data.Flag |= 0x20;
       //m_data.displayFlags = bnpc.getDisplayFlags();
 
       //m_data.currentMount = bnpc.getCurrentMount();

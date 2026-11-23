@@ -13,7 +13,7 @@
       "phases": [
         {
           "id": 1,
-          "name": "Combat",
+          "name": "Opening",
           "onEnter": [],
           "onExit": [],
           "triggers": [
@@ -28,94 +28,97 @@
                 "hpMax": 80
               },
               "action": {
-                "type": "fireTimepoints",
-                "timepoints": [
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 2029064,
-                      "hp": 516,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 1
-                  },
-                  {
-                    "type": "bNpcFlags",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "flags": 0,
-                      "flagsMask": 0,
-                      "invulnType": 3
-                    },
-                    "id": 2
-                  },
-                  {
-                    "type": "setTrigger",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "targetPhaseId": 1,
-                      "triggerId": 2,
-                      "enabled": true
-                    },
-                    "id": 3
-                  }
-                ]
+                "type": "transitionPhase",
+                "phaseId": 2
               }
-            },
+            }
+          ],
+          "schedules": []
+        },
+        {
+          "id": 2,
+          "name": "First reinforcements",
+          "onEnter": [
+            {
+              "type": "bNpcFlags",
+              "startTime": 0,
+              "description": "",
+              "data": {
+                "targetActor": "Galvanth",
+                "flags": 0,
+                "flagsMask": 0,
+                "invulnType": 3
+              },
+              "id": 2
+            }
+          ],
+          "onExit": [
+            {
+              "type": "bNpcFlags",
+              "startTime": 0,
+              "description": "",
+              "data": {
+                "targetActor": "Galvanth",
+                "flags": 0,
+                "flagsMask": 0,
+                "invulnType": 0
+              },
+              "id": 1
+            }
+          ],
+          "triggers": [
             {
               "id": 2,
-              "description": "Remove protection when the imps are defeated",
-              "enabled": false,
-              "condition": "bnpcsDefeated",
+              "description": "Resume combat after the protecting imps fall",
+              "enabled": true,
+              "condition": "encounterGroupDefeated",
               "paramData": {
-                "layoutIds": [
-                  2029064
-                ]
+                "group": "Wave 1 imps",
+                "count": 1
               },
               "action": {
-                "type": "fireTimepoints",
-                "timepoints": [
-                  {
-                    "type": "bNpcFlags",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "flags": 0,
-                      "flagsMask": 0,
-                      "invulnType": 0
-                    },
-                    "id": 1
-                  },
-                  {
-                    "type": "setTrigger",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "targetPhaseId": 1,
-                      "triggerId": 3,
-                      "enabled": true
-                    },
-                    "id": 2
-                  }
-                ]
+                "type": "transitionPhase",
+                "phaseId": 3
               }
-            },
+            }
+          ],
+          "schedules": [
+            {
+              "id": 1,
+              "name": "First reinforcements",
+              "description": "",
+              "loopCount": 1,
+              "loopType": "none",
+              "timepoints": [
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 2029064,
+                    "hp": 516,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    },
+                    "group": "Wave 1 imps"
+                  },
+                  "id": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "name": "After the first wave",
+          "onEnter": [],
+          "onExit": [],
+          "triggers": [
             {
               "id": 3,
               "description": "Summon reinforcements at 60% HP",
-              "enabled": false,
+              "enabled": true,
               "condition": "hpPctBetween",
               "paramData": {
                 "sourceActor": "Galvanth",
@@ -123,139 +126,139 @@
                 "hpMax": 60
               },
               "action": {
-                "type": "fireTimepoints",
-                "timepoints": [
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 2029064,
-                      "hp": 516,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 1
-                  },
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 1334975,
-                      "hp": 172,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 2
-                  },
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 1334968,
-                      "hp": 172,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 3
-                  },
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 1334967,
-                      "hp": 172,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 4
-                  },
-                  {
-                    "type": "bNpcFlags",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "flags": 0,
-                      "flagsMask": 0,
-                      "invulnType": 3
-                    },
-                    "id": 5
-                  },
-                  {
-                    "type": "setTrigger",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "targetPhaseId": 1,
-                      "triggerId": 4,
-                      "enabled": true
-                    },
-                    "id": 6
-                  }
-                ]
+                "type": "transitionPhase",
+                "phaseId": 4
               }
-            },
+            }
+          ],
+          "schedules": []
+        },
+        {
+          "id": 4,
+          "name": "Second reinforcements",
+          "onEnter": [
+            {
+              "type": "bNpcFlags",
+              "startTime": 0,
+              "description": "",
+              "data": {
+                "targetActor": "Galvanth",
+                "flags": 0,
+                "flagsMask": 0,
+                "invulnType": 3
+              },
+              "id": 5
+            }
+          ],
+          "onExit": [
+            {
+              "type": "bNpcFlags",
+              "startTime": 0,
+              "description": "",
+              "data": {
+                "targetActor": "Galvanth",
+                "flags": 0,
+                "flagsMask": 0,
+                "invulnType": 0
+              },
+              "id": 1
+            }
+          ],
+          "triggers": [
             {
               "id": 4,
-              "description": "Remove protection when the imps are defeated",
-              "enabled": false,
-              "condition": "bnpcsDefeated",
+              "description": "Resume combat after the protecting imps fall",
+              "enabled": true,
+              "condition": "encounterGroupDefeated",
               "paramData": {
-                "layoutIds": [
-                  2029064
-                ]
+                "group": "Wave 2 imps",
+                "count": 1
               },
               "action": {
-                "type": "fireTimepoints",
-                "timepoints": [
-                  {
-                    "type": "bNpcFlags",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "flags": 0,
-                      "flagsMask": 0,
-                      "invulnType": 0
-                    },
-                    "id": 1
-                  },
-                  {
-                    "type": "setTrigger",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "targetPhaseId": 1,
-                      "triggerId": 5,
-                      "enabled": true
-                    },
-                    "id": 2
-                  }
-                ]
+                "type": "transitionPhase",
+                "phaseId": 5
               }
-            },
+            }
+          ],
+          "schedules": [
+            {
+              "id": 1,
+              "name": "Second reinforcements",
+              "description": "",
+              "loopCount": 1,
+              "loopType": "none",
+              "timepoints": [
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 2029064,
+                    "hp": 516,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    },
+                    "group": "Wave 2 imps"
+                  },
+                  "id": 1
+                },
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 1334975,
+                    "hp": 172,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    }
+                  },
+                  "id": 2
+                },
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 1334968,
+                    "hp": 172,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    }
+                  },
+                  "id": 3
+                },
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 1334967,
+                    "hp": 172,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    }
+                  },
+                  "id": 4
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "After the second wave",
+          "onEnter": [],
+          "onExit": [],
+          "triggers": [
             {
               "id": 5,
               "description": "Summon reinforcements at 30% HP",
-              "enabled": false,
+              "enabled": true,
               "condition": "hpPctBetween",
               "paramData": {
                 "sourceActor": "Galvanth",
@@ -263,228 +266,238 @@
                 "hpMax": 30
               },
               "action": {
-                "type": "fireTimepoints",
-                "timepoints": [
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 2029064,
-                      "hp": 516,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 1
-                  },
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 2029065,
-                      "hp": 516,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 2
-                  },
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 1334976,
-                      "hp": 172,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 3
-                  },
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 1334970,
-                      "hp": 172,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 4
-                  },
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 1334969,
-                      "hp": 172,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 5
-                  },
-                  {
-                    "type": "bNpcSpawn",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "layoutId": 2029118,
-                      "hp": 172,
-                      "spawnTimeline": 142,
-                      "hateSource": {
-                        "hateType": "topEnmity",
-                        "source": "Galvanth"
-                      }
-                    },
-                    "id": 6
-                  },
-                  {
-                    "type": "bNpcFlags",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "flags": 0,
-                      "flagsMask": 0,
-                      "invulnType": 3
-                    },
-                    "id": 7
-                  },
-                  {
-                    "type": "setTrigger",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "targetPhaseId": 1,
-                      "triggerId": 6,
-                      "enabled": true
-                    },
-                    "id": 8
-                  }
-                ]
+                "type": "transitionPhase",
+                "phaseId": 6
               }
-            },
+            }
+          ],
+          "schedules": []
+        },
+        {
+          "id": 6,
+          "name": "Final reinforcements",
+          "onEnter": [
+            {
+              "type": "bNpcFlags",
+              "startTime": 0,
+              "description": "",
+              "data": {
+                "targetActor": "Galvanth",
+                "flags": 0,
+                "flagsMask": 0,
+                "invulnType": 3
+              },
+              "id": 7
+            }
+          ],
+          "onExit": [
+            {
+              "type": "bNpcFlags",
+              "startTime": 0,
+              "description": "",
+              "data": {
+                "targetActor": "Galvanth",
+                "flags": 0,
+                "flagsMask": 0,
+                "invulnType": 0
+              },
+              "id": 1
+            }
+          ],
+          "triggers": [
             {
               "id": 6,
-              "description": "Remove protection when the imps are defeated",
-              "enabled": false,
-              "condition": "bnpcsDefeated",
+              "description": "Resume combat after the protecting imps fall",
+              "enabled": true,
+              "condition": "encounterGroupDefeated",
               "paramData": {
-                "layoutIds": [
-                  2029064,
-                  2029065
-                ]
+                "group": "Wave 3 imps",
+                "count": 2
               },
               "action": {
-                "type": "fireTimepoints",
-                "timepoints": [
-                  {
-                    "type": "bNpcFlags",
-                    "startTime": 0,
-                    "description": "",
-                    "data": {
-                      "targetActor": "Galvanth",
-                      "flags": 0,
-                      "flagsMask": 0,
-                      "invulnType": 0
-                    },
-                    "id": 1
-                  }
-                ]
+                "type": "transitionPhase",
+                "phaseId": 7
               }
             }
           ],
           "schedules": [
             {
               "id": 1,
-              "name": "Water",
-              "description": "",
-              "loopCount": 1,
-              "loopType": "infinite",
-              "timepoints": [
-                {
-                  "id": 1,
-                  "startTime": 3200,
-                  "type": "castAction",
-                  "description": "",
-                  "data": {
-                    "sourceActor": "Galvanth",
-                    "actionId": 971,
-                    "targetType": "target",
-                    "selectorName": "<unset>",
-                    "selectorIndex": 0
-                  }
-                }
-              ]
-            },
-            {
-              "id": 2,
-              "name": "Drain Touch",
-              "description": "",
-              "loopCount": 1,
-              "loopType": "infinite",
-              "timepoints": [
-                {
-                  "id": 1,
-                  "startTime": 14000,
-                  "type": "castAction",
-                  "description": "",
-                  "data": {
-                    "sourceActor": "Galvanth",
-                    "actionId": 988,
-                    "targetType": "target",
-                    "selectorName": "<unset>",
-                    "selectorIndex": 0
-                  }
-                },
-                {
-                  "id": 2,
-                  "type": "idle",
-                  "startTime": 26000,
-                  "description": "",
-                  "data": {}
-                }
-              ]
-            },
-            {
-              "id": 4,
-              "name": "Mind Blast",
+              "name": "Final reinforcements",
               "description": "",
               "loopCount": 1,
               "loopType": "none",
               "timepoints": [
                 {
-                  "id": 1,
-                  "startTime": 74000,
-                  "type": "castAction",
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
                   "description": "",
                   "data": {
-                    "sourceActor": "Galvanth",
-                    "actionId": 987,
-                    "targetType": "self",
-                    "selectorName": "<unset>",
-                    "selectorIndex": 0
-                  }
+                    "layoutId": 2029064,
+                    "hp": 516,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    },
+                    "group": "Wave 3 imps"
+                  },
+                  "id": 1
+                },
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 2029065,
+                    "hp": 516,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    },
+                    "group": "Wave 3 imps"
+                  },
+                  "id": 2
+                },
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 1334976,
+                    "hp": 172,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    }
+                  },
+                  "id": 3
+                },
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 1334970,
+                    "hp": 172,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    }
+                  },
+                  "id": 4
+                },
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 1334969,
+                    "hp": 172,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    }
+                  },
+                  "id": 5
+                },
+                {
+                  "type": "bNpcSpawn",
+                  "startTime": 0,
+                  "description": "",
+                  "data": {
+                    "layoutId": 2029118,
+                    "hp": 172,
+                    "spawnTimeline": 142,
+                    "hateSource": {
+                      "hateType": "encounterPlayers"
+                    }
+                  },
+                  "id": 6
                 }
               ]
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "Final assault",
+          "onEnter": [],
+          "onExit": [],
+          "triggers": [],
+          "schedules": []
+        }
+      ],
+      "schedules": [
+        {
+          "id": 1,
+          "name": "Water",
+          "description": "",
+          "loopCount": 1,
+          "loopType": "infinite",
+          "timepoints": [
+            {
+              "id": 1,
+              "startTime": 3200,
+              "type": "castAction",
+              "description": "",
+              "data": {
+                "sourceActor": "Galvanth",
+                "actionId": 971,
+                "targetType": "target",
+                "selectorName": "<unset>",
+                "selectorIndex": 0
+              }
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "name": "Drain Touch",
+          "description": "",
+          "loopCount": 1,
+          "loopType": "infinite",
+          "timepoints": [
+            {
+              "id": 1,
+              "startTime": 14000,
+              "type": "castAction",
+              "description": "",
+              "data": {
+                "sourceActor": "Galvanth",
+                "actionId": 988,
+                "targetType": "target",
+                "selectorName": "<unset>",
+                "selectorIndex": 0
+              }
+            },
+            {
+              "id": 2,
+              "type": "idle",
+              "startTime": 26000,
+              "description": "",
+              "data": {}
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "Mind Blast",
+          "description": "",
+          "loopCount": 1,
+          "loopType": "none",
+          "timepoints": [
+            {
+              "id": 1,
+              "startTime": 74000,
+              "type": "castAction",
+              "description": "",
+              "data": {
+                "sourceActor": "Galvanth",
+                "actionId": 987,
+                "targetType": "self",
+                "selectorName": "<unset>",
+                "selectorIndex": 0
+              }
             }
           ]
         }

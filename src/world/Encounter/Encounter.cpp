@@ -18,6 +18,8 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/fmt/fmt.h>
 
+#include <algorithm>
+#include <iterator>
 #include <string>
 #include <fstream>
 #include <filesystem>
@@ -76,12 +78,19 @@ namespace Sapphire::World::Encounter
     for( const auto& actor : m_definition.participants )
     {
       auto pBNpc = m_pTeri->getActiveBNpcByLayoutId( actor.layoutId );
-      if( !pBNpc )
+      const bool needsPush = !pBNpc;
+      if( needsPush )
+      {
         pBNpc = m_pTeri->createBNpcFromLayoutId( actor.layoutId, actor.hp, actor.type );
+        if( !pBNpc )
+          throw std::runtime_error( "Missing encounter participant layout " + std::to_string( actor.layoutId ) );
+      }
 
       pBNpc->resetFlags( actor.flags );
       pBNpc->init();
-      addBNpc( pBNpc );
+      addBNpc( pBNpc, false, actor.completionRole == EncounterBNpcCompletionRole::Required ? "required" : "" );
+      if( needsPush )
+        m_pTeri->pushActor( pBNpc );
     }
 
     for( const auto& eobj : m_definition.onInitEObjList )
@@ -271,7 +280,7 @@ namespace Sapphire::World::Encounter
     for( auto it = m_bnpcs.begin(); it != m_bnpcs.end(); )
     {
       bool remove = true;
-      if( auto bossIt = m_bossBnpcs.find( it->second->getId() ); bossIt != m_bossBnpcs.end() )
+      if( auto bossIt = m_bossBnpcs.find( it->second.npc->getId() ); bossIt != m_bossBnpcs.end() )
       {
         remove = removeBoss;
 
@@ -281,10 +290,11 @@ namespace Sapphire::World::Encounter
 
       if( remove )
       {
-        if( it->second->getBoundEncounterId() == m_id )
-          unbindActor( it->second );
+        if( it->second.npc->getBoundEncounterId() == m_id )
+          unbindActor( it->second.npc );
 
-        m_pTeri->removeActor( it->second );
+        if( m_pTeri->getActiveBNpcByEntityId( it->second.npc->getId() ) == it->second.npc )
+          m_pTeri->removeActor( it->second.npc );
         it = m_bnpcs.erase( it );
       }
       else
@@ -318,33 +328,56 @@ namespace Sapphire::World::Encounter
       onChangeStatus( oldStatus, status );
   }
 
-  void Encounter::addBNpc( Entity::BNpcPtr pBNpc, bool bind )
+  void Encounter::addBNpc( Entity::BNpcPtr pBNpc, bool bind, const std::string& group )
   {
-    m_bnpcs[ pBNpc->getLayoutId() ] = pBNpc;
+    auto [ first, last ] = m_bnpcs.equal_range( pBNpc->getLayoutId() );
+    auto member = std::find_if( first, last, [ & ]( const auto& entry ) { return entry.second.npc == pBNpc; } );
+    if( member == last )
+      m_bnpcs.emplace_hint( last, pBNpc->getLayoutId(), Participant{ pBNpc, group } );
+    else if( !group.empty() )
+      member->second.group = group;
 
     if( bind )
       bindActor( pBNpc );
   }
 
+  bool Encounter::areRequiredParticipantsDefeated() const
+  {
+    const auto count = std::count_if( m_definition.participants.begin(), m_definition.participants.end(), []( const EncounterBNpc& npc ) {
+      return npc.completionRole == EncounterBNpcCompletionRole::Required;
+    } );
+    return areParticipantsDefeated( "required", count );
+  }
+
+  bool Encounter::areParticipantsDefeated( const std::string& group, size_t expectedCount ) const
+  {
+    size_t defeated = 0;
+    for( const auto& [ layoutId, participant ] : m_bnpcs )
+    {
+      if( participant.group != group )
+        continue;
+      if( participant.npc->isAlive() )
+        return false;
+      ++defeated;
+    }
+    return expectedCount && defeated == expectedCount;
+  }
+
   Entity::BNpcPtr Encounter::getBNpc( uint32_t layoutId ) const
   {
-    auto bnpc = m_bnpcs.find( layoutId );
-    if( bnpc != std::end( m_bnpcs ) )
-      return bnpc->second;
-
-    return nullptr;
+    auto [ first, last ] = m_bnpcs.equal_range( layoutId );
+    return first == last ? nullptr : std::prev( last )->second.npc;
   }
 
   void Encounter::removeBNpc( uint32_t layoutId )
   {
-    Entity::BNpcPtr pBNpc;
-    if( auto it = m_bnpcs.find( layoutId ); it != m_bnpcs.end() )
-      pBNpc = it->second;
+    auto [ first, last ] = m_bnpcs.equal_range( layoutId );
+    if( first == last )
+      return;
 
-    m_bnpcs.erase( layoutId );
-
-    if( pBNpc )
-      unbindActor( pBNpc );
+    auto member = std::prev( last );
+    unbindActor( member->second.npc );
+    m_bnpcs.erase( member );
   }
 
   void Encounter::addPlayer( Entity::PlayerPtr pPlayer, bool bind )

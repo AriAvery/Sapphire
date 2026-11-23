@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <algorithm>
 #include <vector>
 #include <time.h>
 #include <random>
@@ -12,6 +13,7 @@
 #include <Network/PacketDef/Zone/ServerZoneDef.h>
 #include <Network/PacketContainer.h>
 #include <Network/CommonActorControl.h>
+#include <Network/Util/PacketUtil.h>
 #include <Database/DatabaseDef.h>
 #include <Network/PacketWrappers/ActorControlSelfPacket.h>
 #include <Service.h>
@@ -393,6 +395,14 @@ void Territory::pushActor( const Entity::GameObjectPtr& pActor )
   }
   pActor->setTerritoryId( getGuId() );
   pActor->setTerritoryTypeId( getTerritoryTypeId() );
+}
+
+void Territory::pushActor( const Entity::BNpcPtr& pBNpc, uint32_t spawnTimeline )
+{
+  if( getActiveBNpcByEntityId( pBNpc->getId() ) != pBNpc )
+    pushActor( pBNpc );
+  if( spawnTimeline )
+    Network::Util::Packet::sendBNpcSpawnControl( *pBNpc, Network::ActorControl::PlaySpawnTimeline, 1, spawnTimeline );
 }
 
 void Territory::removeActor( const Entity::GameObjectPtr& pActor )
@@ -992,9 +1002,16 @@ void Territory::updateSpawnPoints()
 {
   const auto now = Common::Util::getTimeSeconds();
 
-  for( auto it = m_spawnInfo.begin(); it != m_spawnInfo.end(); )
+  if( getAsInstanceContent() )
   {
-    auto& spawn = *it;
+    auto expired = std::remove_if( m_spawnInfo.begin(), m_spawnInfo.end(), []( const SpawnInfo& spawn ) {
+      return spawn.infoPtr->InvalidRepop && spawn.bnpcPtr && !spawn.bnpcPtr->isAlive();
+    } );
+    m_spawnInfo.erase( expired, m_spawnInfo.end() );
+  }
+
+  for( auto& spawn : m_spawnInfo )
+  {
     if( !spawn.bnpcPtr && ( now - spawn.timeOfDeath ) > spawn.infoPtr->PopInterval )
     {
       auto pBNpc = std::make_shared< Entity::BNpc >( getNextActorId(), spawn.infoPtr, *this );
@@ -1005,15 +1022,9 @@ void Territory::updateSpawnPoints()
     }
     else if( spawn.bnpcPtr && !spawn.bnpcPtr->isAlive() )
     {
-      if( spawn.infoPtr->InvalidRepop && getAsInstanceContent() )
-      {
-        it = m_spawnInfo.erase( it );
-        continue;
-      }
       spawn.timeOfDeath = now;
       spawn.bnpcPtr.reset();
     }
-    ++it;
   }
 }
 
@@ -1052,15 +1063,6 @@ World::Encounter::EncounterPtr Territory::getEncounter( const std::string& name 
 
 Entity::BNpcPtr Territory::createBNpcFromLayoutId( uint32_t layoutId, uint32_t hp, Common::BNpcType bnpcType,
                                                    uint32_t triggerOwnerId, World::AI::Controller::ControllerUPtr pController )
-{
-  auto npc = createBNpcFromLayoutIdNoPush( layoutId, hp, bnpcType, triggerOwnerId, std::move( pController ) );
-  if( npc )
-    pushActor( npc );
-  return npc;
-}
-
-Entity::BNpcPtr Territory::createBNpcFromLayoutIdNoPush( uint32_t layoutId, uint32_t hp, Common::BNpcType bnpcType,
-                                                         uint32_t triggerOwnerId, World::AI::Controller::ControllerUPtr pController )
 {
   auto infoPtr = m_bNpcBaseMap.find( layoutId );
   if( infoPtr == m_bNpcBaseMap.end() )

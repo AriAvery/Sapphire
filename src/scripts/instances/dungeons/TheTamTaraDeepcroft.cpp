@@ -1,4 +1,6 @@
 #include <ScriptObject.h>
+#include <Manager/TaskMgr.h>
+#include <Task/RevealBNpcTask.h>
 #include <Territory/InstanceContent.h>
 #include <Encounter/Encounter.h>
 #include <Actor/EventObject.h>
@@ -71,7 +73,10 @@ private:
     for( auto id : altar.guards )
     {
       if( id != 0 )
-        instance.createBNpcFromLayoutId( id, id == altar.guards.front() ? 516 : 577, Common::BNpcType::Enemy );
+      {
+        if( auto guard = instance.createBNpcFromLayoutId( id, id == altar.guards.front() ? 516 : 577, Common::BNpcType::Enemy ) )
+          instance.pushActor( guard );
+      }
     }
   }
 
@@ -408,10 +413,10 @@ public:
       auto mask = ( ( 1u << count ) - 1 ) << ( i * 5 );
       if( ( defeated & mask ) == mask )
       {
-        if( auto demon = instance.createBNpcFromLayoutIdNoPush( altar.soulcounter, 4128, Common::BNpcType::Enemy ) )
+        if( auto demon = instance.createBNpcFromLayoutId( altar.soulcounter, 4128, Common::BNpcType::Enemy ) )
         {
           announce( instance, 2009, { 455, 1 } );
-          demon->prepareSpawnEffect();
+          Common::Service< World::Manager::TaskMgr >::ref().queueTask( std::make_shared< World::RevealBNpcTask >( 500, demon ) );
           instance.pushActor( demon );
         }
       }
@@ -426,7 +431,7 @@ public:
       if( defeated == 15 )
         announce( instance, 2008 );
     }
-    else if( id == Galvanth )
+    else if( id == Galvanth && instance.getEncounter( "Galvanth" )->areRequiredParticipantsDefeated() )
     {
       releaseSeal( instance, 3, 543, 2001741, 2001085 );
       instance.getEncounter( "Galvanth" )->setStatus( EncounterStatus::SUCCESS );
@@ -499,7 +504,10 @@ public:
       {
         instance.setDirectorVar( VisibleObjectives, 1 );
         for( auto guard : RosaryGuards )
-          instance.createBNpcFromLayoutId( guard, 1155, Common::BNpcType::Enemy );
+        {
+          if( auto npc = instance.createBNpcFromLayoutId( guard, 1155, Common::BNpcType::Enemy ) )
+            instance.pushActor( npc );
+        }
       }
       else if( orbs == 4 )
       {

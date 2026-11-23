@@ -293,7 +293,10 @@ namespace Sapphire::World::Encounter
     bool m_newInstance{ false };
     uint32_t m_hp{ 100 };
     uint32_t m_spawnTimeline{ 0 };
+    enum class SpawnHate { None, EncounterPlayers, CopyEnmity, TopEnmity };
+    SpawnHate m_hateType{ SpawnHate::None };
     std::string m_hateSource;
+    std::string m_group;
 
     TimepointDataBNpcSpawn( uint32_t layoutId, uint32_t flags, uint32_t flagsMask, uint32_t invincibilityType, uint32_t type ) :
       TimepointData( TimepointDataType::BNpcSpawn ),

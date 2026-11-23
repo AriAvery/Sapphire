@@ -344,9 +344,23 @@ namespace Sapphire::World::Encounter
         pSpawn->m_newInstance = newInstance;
         pSpawn->m_hp = dataJ.value( "hp", 100u );
         pSpawn->m_spawnTimeline = dataJ.value( "spawnTimeline", 0u );
-        auto hateSource = dataJ.find( "hateSource" );
-        if( hateSource != dataJ.end() && hateSource->is_object() && hateSource->value( "hateType", std::string() ) == "topEnmity" )
-          pSpawn->m_hateSource = hateSource->at( "source" ).get< std::string >();
+        pSpawn->m_group = dataJ.value( "group", std::string() );
+        if( auto it = dataJ.find( "hateSource" ); it != dataJ.end() && !it->is_null() )
+        {
+          const auto type = it->at( "hateType" ).get< std::string >();
+          using SpawnHate = TimepointDataBNpcSpawn::SpawnHate;
+          if( type == "encounterPlayers" )
+            pSpawn->m_hateType = SpawnHate::EncounterPlayers;
+          else if( type == "copyEnmity" || type == "topEnmity" )
+          {
+            pSpawn->m_hateType = type == "copyEnmity" ? SpawnHate::CopyEnmity : SpawnHate::TopEnmity;
+            pSpawn->m_hateSource = it->at( "source" ).get< std::string >();
+            if( !actors.count( pSpawn->m_hateSource ) )
+              throw std::runtime_error( "Unknown spawn enmity source: " + pSpawn->m_hateSource );
+          }
+          else if( type != "none" && type != "<to-be-defined>" )
+            throw std::runtime_error( "Unknown spawn enmity type: " + type );
+        }
         m_pData = pSpawn;
       }
       break;
@@ -557,12 +571,12 @@ namespace Sapphire::World::Encounter
       {
         auto pActionData = std::dynamic_pointer_cast< TimepointDataAction, TimepointData >( m_pData );
         auto pBNpc = pack.getBNpcByRef( pActionData->m_sourceRef, pEncounter );
-        Common::Vector3 pos = pBNpc->getPos();
         // todo: filter the correct target
         // todo: tie to mechanic script?
         // todo: mechanic should probably just be an Action::onTick, with instance/director passed to it
         if( pBNpc )
         {
+          auto pos = pBNpc->getPos();
           uint32_t targetId = pBNpc->getId();
           switch( pActionData->m_targetType )
           {
@@ -1000,7 +1014,7 @@ namespace Sapphire::World::Encounter
         auto pSpawnData = std::dynamic_pointer_cast< TimepointDataBNpcSpawn, TimepointData >( m_pData );
         auto pBNpc = pSpawnData->m_newInstance ? nullptr : pTeri->getActiveBNpcByLayoutId( pSpawnData->m_layoutId );
         if( !pBNpc )
-          pBNpc = pTeri->createBNpcFromLayoutIdNoPush( pSpawnData->m_layoutId, pSpawnData->m_hp, Common::BNpcType::Enemy );
+          pBNpc = pTeri->createBNpcFromLayoutId( pSpawnData->m_layoutId, pSpawnData->m_hp, Common::BNpcType::Enemy );
 
         if( pBNpc )
         {
@@ -1014,24 +1028,43 @@ namespace Sapphire::World::Encounter
           if( !pSpawnData->m_newInstance )
             pBNpc->init();
 
-          pEncounter->addBNpc( pBNpc );
-          // make sure we bind this bnpc
-          if( pEncounter->isLocked() )
-            pEncounter->bindActor( pBNpc );
+          pEncounter->addBNpc( pBNpc, pEncounter->isLocked(), pSpawnData->m_group );
 
           auto pos = pBNpc->getPos();
           Logger::info( "Timepoint::update: BNpcSpawn for actor: {} {} Pos {} {} {}", pBNpc->getId(), pBNpc->getName(), pos.x, pos.y, pos.z );
 
-          pTeri->pushActor( pBNpc );
-          if( pSpawnData->m_spawnTimeline )
-            Network::Util::Packet::sendActorControl( pBNpc->getInRangePlayerIds(), pBNpc->getId(),
-                                                     Network::ActorControl::PlaySpawnTimeline, 1, pSpawnData->m_spawnTimeline );
+          pTeri->pushActor( pBNpc, pSpawnData->m_spawnTimeline );
 
-          if( !pSpawnData->m_hateSource.empty() )
+          using SpawnHate = TimepointDataBNpcSpawn::SpawnHate;
+          switch( pSpawnData->m_hateType )
           {
-            if( auto pSource = pack.getBNpcByRef( pSpawnData->m_hateSource, pEncounter ) )
-              if( auto pTarget = pSource->hateListGetHighest() )
-                pBNpc->aggro( pTarget );
+            case SpawnHate::None:
+              break;
+            case SpawnHate::EncounterPlayers:
+              for( const auto& player : pEncounter->getPlayersInside() )
+                if( player->isAlive() && player->getTerritoryId() == pTeri->getGuId() )
+                  pBNpc->hateListAdd( player, 1 );
+              break;
+            case SpawnHate::CopyEnmity:
+            case SpawnHate::TopEnmity:
+            {
+              auto source = pack.getBNpcByRef( pSpawnData->m_hateSource, pEncounter );
+              if( !source || source == pBNpc )
+                break;
+              if( pSpawnData->m_hateType == SpawnHate::CopyEnmity )
+                pBNpc->copyHateList( *source );
+              else if( auto target = source->hateListGetHighest() )
+                pBNpc->aggro( target );
+              break;
+            }
+          }
+          if( pSpawnData->m_hateType == SpawnHate::EncounterPlayers || pSpawnData->m_hateType == SpawnHate::CopyEnmity )
+          {
+            if( auto target = pBNpc->hateListGetHighest() )
+            {
+              pBNpc->aggro( target );
+              pBNpc->hateListUpdatePlayers();
+            }
           }
         }
       }

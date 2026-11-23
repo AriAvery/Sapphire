@@ -16,7 +16,6 @@
 #include "Network/PacketWrappers/ActorControlPacket.h"
 #include "Network/PacketWrappers/ActorControlSelfPacket.h"
 #include "Network/PacketWrappers/ActorControlTargetPacket.h"
-#include "Network/PacketWrappers/NpcSpawnPacket.h"
 #include "Network/PacketWrappers/MoveActorPacket.h"
 #include "Network/Util/PacketUtil.h"
 
@@ -409,21 +408,20 @@ uint32_t BNpc::getBNpcNameId() const
   return m_bNpcNameId;
 }
 
-void BNpc::prepareSpawnEffect()
+bool BNpc::isAwaitingSpawnReveal() const
 {
-  m_spawnRevealTime = Common::Util::getTimeMs() + 500;
+  return m_awaitingSpawnReveal;
+}
+
+void BNpc::setAwaitingSpawnReveal( bool pending )
+{
+  m_awaitingSpawnReveal = pending;
 }
 
 void BNpc::spawn( PlayerPtr pTarget )
 {
   m_lastRoamTargetReachedTime = Common::Util::getTimeSeconds();
-
-  auto& server = Common::Service< World::WorldServer >::ref();
-  updateSpawnEffect( Common::Util::getTimeMs() );
-  auto packet = std::make_shared< NpcSpawnPacket >( *this, *pTarget );
-  if( m_spawnRevealTime && pTarget->isActorSpawnIdValid( packet->data().Index ) )
-    packet->data().Flag |= 0x20;
-  server.queueForPlayer( pTarget->getCharacterId(), packet );
+  Network::Util::Packet::sendBNpcSpawn( *this, *pTarget );
 }
 
 void BNpc::despawn( PlayerPtr pTarget )
@@ -646,19 +644,35 @@ void BNpc::hateListAdd( const CharaPtr& pChara, int32_t hateAmount )
       return;
     }
 
-    auto hateEntry = std::make_shared< HateListEntry >();
-    hateEntry->m_hateAmount = hateAmount;
-    hateEntry->m_pChara = pChara;
-
-    m_hateList.emplace( pChara->getId(), hateEntry );
-    if( pChara->isPlayer() )
-    {
-      auto pPlayer = pChara->getAsPlayer();
-      pPlayer->hateListAdd( *this );
-      World::Manager::PlayerMgr::sendDebug( *pChara->getAsPlayer(), "New Aggro: {}, Aggro gained: {}", hateAmount,
-                                            hateAmount );
-    }
+    insertHateEntry( pChara, hateAmount );
   }
+}
+
+void BNpc::insertHateEntry( const CharaPtr& pChara, uint32_t hateAmount )
+{
+  auto hateEntry = std::make_shared< HateListEntry >();
+  hateEntry->m_hateAmount = hateAmount;
+  hateEntry->m_pChara = pChara;
+
+  m_hateList.emplace( pChara->getId(), hateEntry );
+  if( pChara->isPlayer() )
+  {
+    auto pPlayer = pChara->getAsPlayer();
+    pPlayer->hateListAdd( *this );
+    World::Manager::PlayerMgr::sendDebug( *pChara->getAsPlayer(), "New Aggro: {}, Aggro gained: {}", hateAmount,
+                                          hateAmount );
+  }
+}
+
+void BNpc::copyHateList( const BNpc& source )
+{
+  if( &source == this )
+    return;
+  if( !m_hateList.empty() )
+    hateListClear();
+  for( const auto& [ id, entry ] : source.getHateList() )
+    if( entry->m_pChara->isAlive() && entry->m_pChara->getTerritoryId() == getTerritoryId() && entry->m_hateAmount )
+      insertHateEntry( entry->m_pChara, entry->m_hateAmount );
 }
 
 void BNpc::hateListAddDelayed( const CharaPtr& pChara, int32_t hateAmount )
@@ -844,22 +858,8 @@ void BNpc::onTick()
   }
 }
 
-void BNpc::updateSpawnEffect( uint64_t tickCount )
-{
-  if( !m_spawnRevealTime || tickCount < m_spawnRevealTime )
-    return;
-
-  m_spawnRevealTime = 0;
-  for( const auto& player : m_inRangePlayers )
-  {
-    if( player->hasActorSpawned( getId() ) )
-      Network::Util::Packet::sendActorControl( *player, getId(), SpawnEffect, isAlive() ? 1 : 0 );
-  }
-}
-
 void BNpc::update( uint64_t tickCount )
 {
-  updateSpawnEffect( tickCount );
   Chara::update( tickCount );
 
   if( m_pController )

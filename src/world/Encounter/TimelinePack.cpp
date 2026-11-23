@@ -40,6 +40,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <set>
 
 namespace Sapphire::World::Encounter
 {
@@ -71,7 +72,7 @@ namespace Sapphire::World::Encounter
       { "encounterTimeElapsed",     ConditionType::EncounterTimeElapsed },
 
       { "combatState",              ConditionType::CombatState },
-      { "bnpcsDefeated",            ConditionType::BNpcsDefeated },
+      { "encounterGroupDefeated",            ConditionType::EncounterGroupDefeated },
       { "bnpcHasFlags",             ConditionType::BNpcHasFlags },
 
       { "getAction",                ConditionType::GetAction },
@@ -85,8 +86,7 @@ namespace Sapphire::World::Encounter
     const static std::unordered_map< std::string, TriggerAction::Type > triggerActionMap =
     {
       { "transitionPhase", TriggerAction::Type::TransitionPhase },
-      { "fireTimepoint",   TriggerAction::Type::FireTimepoint },
-      { "fireTimepoints",  TriggerAction::Type::FireTimepoint }
+      { "fireTimepoint",   TriggerAction::Type::FireTimepoint }
     };
 
     auto pack = std::make_shared< TimelinePack >();
@@ -164,12 +164,33 @@ namespace Sapphire::World::Encounter
 
       TimelineActor& actor = actorNameMap[ actorName ];
 
+      auto loadSchedules = [ & ]( const nlohmann::json& schedules, auto& owner )
+      {
+        std::set< std::string > names;
+        for( const auto& scheduleJ : schedules )
+        {
+          Schedule schedule;
+          schedule.from_json( scheduleJ );
+          if( !names.insert( schedule.m_name ).second )
+            throw std::runtime_error( "EncounterTimeline::createTimelinePack - duplicate schedule by name: " + schedule.m_name );
+
+          for( const auto& point : scheduleJ.at( "timepoints" ) )
+          {
+            Timepoint timepoint;
+            timepoint.from_json( point, actorNameMap, actor.m_layoutId );
+            schedule.addTimepoint( timepoint );
+          }
+          owner.addSchedule( schedule.m_id, schedule );
+        }
+      };
+
+      if( auto it = actorV.find( "schedules" ); it != actorV.end() )
+        loadSchedules( *it, actor );
+
       auto& phaseV = actorV.at( "phases" );
 
       for( const auto& phaseJ : phaseV.items() )
       {
-        std::map< std::string, Schedule > scheduleNameMap;
-
         auto phaseId = phaseJ.value().at( "id" ).get< uint32_t >();
 
         // get the cached phase
@@ -200,35 +221,7 @@ namespace Sapphire::World::Encounter
           }
         }
 
-        // Schedules
-        for( const auto& scheduleJ : phaseJ.value().at( "schedules" ).items() )
-        {
-          auto& scheduleV = scheduleJ.value();
-          const auto id = scheduleV.at( "id" ).get< uint32_t >();
-          const auto& scheduleName = scheduleV.at( "name" ).get< std::string >();
-          const auto& timepointsJ = scheduleV.at( "timepoints" );
-          const auto& description = scheduleV.at( "description" ).get< std::string >();
-
-          Schedule sched;
-          sched.from_json( scheduleV );
-
-          for( const auto& timepointJ : timepointsJ.items() )
-          {
-            auto& timepointV = timepointJ.value();
-            Timepoint timepoint;
-            timepoint.from_json( timepointV, actorNameMap, actor.m_layoutId );
-
-            sched.addTimepoint( timepoint );
-          }
-
-          if( scheduleNameMap.find( scheduleName ) != scheduleNameMap.end() )
-            throw std::runtime_error( fmt::format( std::string( "EncounterTimeline::createTimelinePack - duplicate schedule by name: {}" ), scheduleName ) );
-
-          scheduleNameMap.emplace( std::make_pair( scheduleName, sched ) );
-
-          // add to phase
-          pPhase->addSchedule( sched.m_id, sched );
-        }
+        loadSchedules( phaseJ.value().at( "schedules" ), *pPhase );
 
         // Triggers
         for( const auto& triggerJ : phaseJ.value().at( "triggers" ).items() )
@@ -242,8 +235,7 @@ namespace Sapphire::World::Encounter
           // Action
           {
             const auto& actionJ = triggerJ.value().at( "action" );
-            const auto actionName = actionJ.at( "type" ).get< std::string >();
-            const auto actionType = triggerActionMap.at( actionName );
+            const auto actionType = triggerActionMap.at( actionJ.at( "type" ).get< std::string >() );
             TriggerActionPtr pAction = std::make_shared< TriggerAction >();
             pAction->m_type = actionType;
             if( pAction->m_type == TriggerAction::Type::TransitionPhase )
@@ -254,13 +246,14 @@ namespace Sapphire::World::Encounter
             }
             else if( pAction->m_type == TriggerAction::Type::FireTimepoint )
             {
-              if( actionName == "fireTimepoints" )
+              if( !actionJ.at( "timepoint" ).is_null() )
               {
-                for( const auto& point : actionJ.at( "timepoints" ) )
-                  pAction->m_timepoints.emplace_back().from_json( point, actorNameMap, actor.m_layoutId );
+                auto& timepointV = actionJ.at( "timepoint" );
+                Timepoint timepoint;
+                timepoint.from_json( timepointV, actorNameMap, actor.m_layoutId );
+
+                pAction->m_timepoint = timepoint;
               }
-              else if( !actionJ.at( "timepoint" ).is_null() )
-                pAction->m_timepoints.emplace_back().from_json( actionJ.at( "timepoint" ), actorNameMap, actor.m_layoutId );
             }
             // add the action to the trigger
             trigger.setAction( pAction );
@@ -308,9 +301,9 @@ namespace Sapphire::World::Encounter
                 pCondition->from_json( conditionJ, condition, actorNameMap );
               }
               break;
-              case ConditionType::BNpcsDefeated:
+              case ConditionType::EncounterGroupDefeated:
               {
-                pCondition = std::make_shared< ConditionBNpcsDefeated >();
+                pCondition = std::make_shared< ConditionEncounterGroupDefeated >();
                 pCondition->from_json( conditionJ, condition, actorNameMap );
               }
               break;
@@ -458,7 +451,7 @@ namespace Sapphire::World::Encounter
     for( auto& actor : m_timelineActors )
     {
       actor.resetAllSubActors( pEncounter->getTeriPtr() );
-      // todo: reset all phases
+      actor.resetTimeline();
     }
     m_paused = false;
     m_pauseStart = 0;

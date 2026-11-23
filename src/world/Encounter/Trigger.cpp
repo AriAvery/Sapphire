@@ -70,8 +70,7 @@ namespace Sapphire::World::Encounter
       break;
       case TriggerAction::Type::FireTimepoint:
       {
-        for( const auto& timepoint : m_pAction->m_timepoints )
-          timepoint.execute( self, pack, pEncounter, time );
+        m_pAction->m_timepoint.execute( self, pack, pEncounter, time );
       }
       break;
       default:
