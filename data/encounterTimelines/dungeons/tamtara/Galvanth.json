@@ -14,55 +14,404 @@
         {
           "id": 1,
           "name": "Combat",
-          "onEnter": [
+          "onEnter": [],
+          "onExit": [],
+          "triggers": [
             {
               "id": 1,
-              "startTime": 0,
-              "type": "mechanic",
-              "description": "",
-              "data": {
-                "instance": "reinforcements",
-                "function": "begin",
-                "args": {
-                  "waves": [
-                    {
-                      "hpPercent": 80,
-                      "imps": [
-                        2029064
-                      ],
-                      "guards": []
+              "description": "Summon reinforcements at 80% HP",
+              "enabled": true,
+              "condition": "hpPctBetween",
+              "paramData": {
+                "sourceActor": "Galvanth",
+                "hpMin": 0,
+                "hpMax": 80
+              },
+              "action": {
+                "type": "fireTimepoints",
+                "timepoints": [
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 2029064,
+                      "hp": 516,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
                     },
-                    {
-                      "hpPercent": 60,
-                      "imps": [
-                        2029064
-                      ],
-                      "guards": [
-                        1334975,
-                        1334968,
-                        1334967
-                      ]
+                    "id": 1
+                  },
+                  {
+                    "type": "bNpcFlags",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "flags": 0,
+                      "flagsMask": 0,
+                      "invulnType": 3
                     },
-                    {
-                      "hpPercent": 30,
-                      "imps": [
-                        2029064,
-                        2029065
-                      ],
-                      "guards": [
-                        1334976,
-                        1334970,
-                        1334969,
-                        2029118
-                      ]
-                    }
-                  ]
-                }
+                    "id": 2
+                  },
+                  {
+                    "type": "setTrigger",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "targetPhaseId": 1,
+                      "triggerId": 2,
+                      "enabled": true
+                    },
+                    "id": 3
+                  }
+                ]
+              }
+            },
+            {
+              "id": 2,
+              "description": "Remove protection when the imps are defeated",
+              "enabled": false,
+              "condition": "bnpcsDefeated",
+              "paramData": {
+                "layoutIds": [
+                  2029064
+                ]
+              },
+              "action": {
+                "type": "fireTimepoints",
+                "timepoints": [
+                  {
+                    "type": "bNpcFlags",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "flags": 0,
+                      "flagsMask": 0,
+                      "invulnType": 0
+                    },
+                    "id": 1
+                  },
+                  {
+                    "type": "setTrigger",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "targetPhaseId": 1,
+                      "triggerId": 3,
+                      "enabled": true
+                    },
+                    "id": 2
+                  }
+                ]
+              }
+            },
+            {
+              "id": 3,
+              "description": "Summon reinforcements at 60% HP",
+              "enabled": false,
+              "condition": "hpPctBetween",
+              "paramData": {
+                "sourceActor": "Galvanth",
+                "hpMin": 0,
+                "hpMax": 60
+              },
+              "action": {
+                "type": "fireTimepoints",
+                "timepoints": [
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 2029064,
+                      "hp": 516,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 1
+                  },
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 1334975,
+                      "hp": 172,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 2
+                  },
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 1334968,
+                      "hp": 172,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 3
+                  },
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 1334967,
+                      "hp": 172,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 4
+                  },
+                  {
+                    "type": "bNpcFlags",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "flags": 0,
+                      "flagsMask": 0,
+                      "invulnType": 3
+                    },
+                    "id": 5
+                  },
+                  {
+                    "type": "setTrigger",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "targetPhaseId": 1,
+                      "triggerId": 4,
+                      "enabled": true
+                    },
+                    "id": 6
+                  }
+                ]
+              }
+            },
+            {
+              "id": 4,
+              "description": "Remove protection when the imps are defeated",
+              "enabled": false,
+              "condition": "bnpcsDefeated",
+              "paramData": {
+                "layoutIds": [
+                  2029064
+                ]
+              },
+              "action": {
+                "type": "fireTimepoints",
+                "timepoints": [
+                  {
+                    "type": "bNpcFlags",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "flags": 0,
+                      "flagsMask": 0,
+                      "invulnType": 0
+                    },
+                    "id": 1
+                  },
+                  {
+                    "type": "setTrigger",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "targetPhaseId": 1,
+                      "triggerId": 5,
+                      "enabled": true
+                    },
+                    "id": 2
+                  }
+                ]
+              }
+            },
+            {
+              "id": 5,
+              "description": "Summon reinforcements at 30% HP",
+              "enabled": false,
+              "condition": "hpPctBetween",
+              "paramData": {
+                "sourceActor": "Galvanth",
+                "hpMin": 0,
+                "hpMax": 30
+              },
+              "action": {
+                "type": "fireTimepoints",
+                "timepoints": [
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 2029064,
+                      "hp": 516,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 1
+                  },
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 2029065,
+                      "hp": 516,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 2
+                  },
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 1334976,
+                      "hp": 172,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 3
+                  },
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 1334970,
+                      "hp": 172,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 4
+                  },
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 1334969,
+                      "hp": 172,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 5
+                  },
+                  {
+                    "type": "bNpcSpawn",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "layoutId": 2029118,
+                      "hp": 172,
+                      "spawnTimeline": 142,
+                      "hateSource": {
+                        "hateType": "topEnmity",
+                        "source": "Galvanth"
+                      }
+                    },
+                    "id": 6
+                  },
+                  {
+                    "type": "bNpcFlags",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "flags": 0,
+                      "flagsMask": 0,
+                      "invulnType": 3
+                    },
+                    "id": 7
+                  },
+                  {
+                    "type": "setTrigger",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "targetPhaseId": 1,
+                      "triggerId": 6,
+                      "enabled": true
+                    },
+                    "id": 8
+                  }
+                ]
+              }
+            },
+            {
+              "id": 6,
+              "description": "Remove protection when the imps are defeated",
+              "enabled": false,
+              "condition": "bnpcsDefeated",
+              "paramData": {
+                "layoutIds": [
+                  2029064,
+                  2029065
+                ]
+              },
+              "action": {
+                "type": "fireTimepoints",
+                "timepoints": [
+                  {
+                    "type": "bNpcFlags",
+                    "startTime": 0,
+                    "description": "",
+                    "data": {
+                      "targetActor": "Galvanth",
+                      "flags": 0,
+                      "flagsMask": 0,
+                      "invulnType": 0
+                    },
+                    "id": 1
+                  }
+                ]
               }
             }
           ],
-          "onExit": [],
-          "triggers": [],
           "schedules": [
             {
               "id": 1,
@@ -143,7 +492,5 @@
     }
   ],
   "selectors": [],
-  "mechanics": {
-    "reinforcements": "TamTaraReinforcements"
-  }
+  "mechanics": {}
 }

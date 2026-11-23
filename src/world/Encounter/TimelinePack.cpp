@@ -71,6 +71,7 @@ namespace Sapphire::World::Encounter
       { "encounterTimeElapsed",     ConditionType::EncounterTimeElapsed },
 
       { "combatState",              ConditionType::CombatState },
+      { "bnpcsDefeated",            ConditionType::BNpcsDefeated },
       { "bnpcHasFlags",             ConditionType::BNpcHasFlags },
 
       { "getAction",                ConditionType::GetAction },
@@ -84,7 +85,8 @@ namespace Sapphire::World::Encounter
     const static std::unordered_map< std::string, TriggerAction::Type > triggerActionMap =
     {
       { "transitionPhase", TriggerAction::Type::TransitionPhase },
-      { "fireTimepoint",   TriggerAction::Type::FireTimepoint }
+      { "fireTimepoint",   TriggerAction::Type::FireTimepoint },
+      { "fireTimepoints",  TriggerAction::Type::FireTimepoint }
     };
 
     auto pack = std::make_shared< TimelinePack >();
@@ -240,7 +242,8 @@ namespace Sapphire::World::Encounter
           // Action
           {
             const auto& actionJ = triggerJ.value().at( "action" );
-            const auto actionType = triggerActionMap.at( actionJ.at( "type" ).get< std::string >() );
+            const auto actionName = actionJ.at( "type" ).get< std::string >();
+            const auto actionType = triggerActionMap.at( actionName );
             TriggerActionPtr pAction = std::make_shared< TriggerAction >();
             pAction->m_type = actionType;
             if( pAction->m_type == TriggerAction::Type::TransitionPhase )
@@ -251,14 +254,13 @@ namespace Sapphire::World::Encounter
             }
             else if( pAction->m_type == TriggerAction::Type::FireTimepoint )
             {
-              if( !actionJ.at( "timepoint" ).is_null() )
+              if( actionName == "fireTimepoints" )
               {
-                auto& timepointV = actionJ.at( "timepoint" );
-                Timepoint timepoint;
-                timepoint.from_json( timepointV, actorNameMap, actor.m_layoutId );
-
-                pAction->m_timepoint = timepoint;
+                for( const auto& point : actionJ.at( "timepoints" ) )
+                  pAction->m_timepoints.emplace_back().from_json( point, actorNameMap, actor.m_layoutId );
               }
+              else if( !actionJ.at( "timepoint" ).is_null() )
+                pAction->m_timepoints.emplace_back().from_json( actionJ.at( "timepoint" ), actorNameMap, actor.m_layoutId );
             }
             // add the action to the trigger
             trigger.setAction( pAction );
@@ -303,6 +305,12 @@ namespace Sapphire::World::Encounter
               case ConditionType::EncounterTimeElapsed:
               {
                 pCondition = std::make_shared< ConditionEncounterTimeElapsed >();
+                pCondition->from_json( conditionJ, condition, actorNameMap );
+              }
+              break;
+              case ConditionType::BNpcsDefeated:
+              {
+                pCondition = std::make_shared< ConditionBNpcsDefeated >();
                 pCondition->from_json( conditionJ, condition, actorNameMap );
               }
               break;

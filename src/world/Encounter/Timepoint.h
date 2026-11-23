@@ -290,7 +290,10 @@ namespace Sapphire::World::Encounter
     uint32_t m_invincibilityType{ 0 };
     uint32_t m_type{ 0 };
 
-    // todo: hate type, source
+    bool m_newInstance{ false };
+    uint32_t m_hp{ 100 };
+    uint32_t m_spawnTimeline{ 0 };
+    std::string m_hateSource;
 
     TimepointDataBNpcSpawn( uint32_t layoutId, uint32_t flags, uint32_t flagsMask, uint32_t invincibilityType, uint32_t type ) :
       TimepointData( TimepointDataType::BNpcSpawn ),

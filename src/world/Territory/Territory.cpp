@@ -12,7 +12,6 @@
 #include <Network/PacketDef/Zone/ServerZoneDef.h>
 #include <Network/PacketContainer.h>
 #include <Network/CommonActorControl.h>
-#include <Network/Util/PacketUtil.h>
 #include <Database/DatabaseDef.h>
 #include <Network/PacketWrappers/ActorControlSelfPacket.h>
 #include <Service.h>
@@ -1057,15 +1056,6 @@ Entity::BNpcPtr Territory::createBNpcFromLayoutId( uint32_t layoutId, uint32_t h
   auto npc = createBNpcFromLayoutIdNoPush( layoutId, hp, bnpcType, triggerOwnerId, std::move( pController ) );
   if( npc )
     pushActor( npc );
-  return npc;
-}
-
-Entity::BNpcPtr Territory::createAnimatedBNpc( uint32_t layoutId, uint32_t hp, Common::BNpcType bnpcType )
-{
-  auto npc = createBNpcFromLayoutId( layoutId, hp, bnpcType );
-  if( npc )
-    Network::Util::Packet::sendActorControl( npc->getInRangePlayerIds(), npc->getId(),
-                                            Network::ActorControl::PlaySpawnTimeline, 1, 142 );
   return npc;
 }
 

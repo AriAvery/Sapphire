@@ -328,31 +328,26 @@ namespace Sapphire::World::Encounter
       case TimepointDataType::BNpcSpawn:
       {
         auto& dataJ = json.at( "data" );
-        // auto hateSrcJ = dataJ.at( "hateSrc" );
-        auto actorRef = dataJ.at( "spawnActor" ).get< std::string >();
-        auto flags = dataJ.at( "flags" ).get< uint32_t >();
-        // todo: batallion
-        // auto battalion = dataJ.at( "batallion" ).get< uint32_t >();
-        auto bnpcType = Common::BNpcType::Enemy;//bnpcTypeMap.at( dataJ.at( "type" ).get< std::string >() );
-        auto flagsMaskJ = dataJ.at( "flagsMask" );
-        auto flagsMask = 0xFFFFFFFF;
-        auto invulnJ = dataJ.at( "invulnType" );
+        const bool newInstance = dataJ.contains( "layoutId" );
+        const auto layoutId = newInstance ? dataJ.at( "layoutId" ).get< uint32_t >() :
+                              actors.at( dataJ.at( "spawnActor" ).get< std::string >() ).getLayoutId();
+        const auto flags = dataJ.value( "flags", 0u );
+        auto flagsMask = dataJ.contains( "flags" ) ? 0xFFFFFFFFu : 0u;
+        if( dataJ.contains( "flagsMask" ) && !dataJ.at( "flagsMask" ).is_null() )
+          flagsMask = dataJ.at( "flagsMask" ).get< uint32_t >();
+
         auto invincibilityType = Common::InvincibilityNone;
+        if( dataJ.contains( "invulnType" ) && !dataJ.at( "invulnType" ).is_null() )
+          invincibilityType = dataJ.at( "invulnType" ).get< Common::InvincibilityType >();
 
-        if( !flagsMaskJ.is_null() )
-          flagsMask = flagsMaskJ.get< uint32_t >();
-
-        if( !invulnJ.is_null() )
-          invincibilityType = invulnJ.get< Common::InvincibilityType >();
-        // todo: hateSrc
-
-        uint32_t layoutId = Common::INVALID_GAME_OBJECT_ID;
-        if( auto it = actors.find( actorRef ); it != actors.end() )
-          layoutId = it->second.m_layoutId;
-        else
-          throw std::runtime_error( fmt::format( std::string( "Timepoint::from_json: BNpcSpawn invalid actor ref: {}" ), actorRef ) );
-
-        m_pData = std::make_shared< TimepointDataBNpcSpawn >( layoutId, flags, flagsMask, invincibilityType, bnpcType );
+        auto pSpawn = std::make_shared< TimepointDataBNpcSpawn >( layoutId, flags, flagsMask, invincibilityType, Common::BNpcType::Enemy );
+        pSpawn->m_newInstance = newInstance;
+        pSpawn->m_hp = dataJ.value( "hp", 100u );
+        pSpawn->m_spawnTimeline = dataJ.value( "spawnTimeline", 0u );
+        auto hateSource = dataJ.find( "hateSource" );
+        if( hateSource != dataJ.end() && hateSource->is_object() && hateSource->value( "hateType", std::string() ) == "topEnmity" )
+          pSpawn->m_hateSource = hateSource->at( "source" ).get< std::string >();
+        m_pData = pSpawn;
       }
       break;
       case TimepointDataType::BNpcFlags:
@@ -1003,11 +998,9 @@ namespace Sapphire::World::Encounter
       case TimepointDataType::BNpcSpawn:
       {
         auto pSpawnData = std::dynamic_pointer_cast< TimepointDataBNpcSpawn, TimepointData >( m_pData );
-        auto pBNpc = pTeri->getActiveBNpcByLayoutId( pSpawnData->m_layoutId );
-
-        // todo: probably have this info in the timepoint data
+        auto pBNpc = pSpawnData->m_newInstance ? nullptr : pTeri->getActiveBNpcByLayoutId( pSpawnData->m_layoutId );
         if( !pBNpc )
-          pBNpc = pTeri->createBNpcFromLayoutIdNoPush( pSpawnData->m_layoutId, 100, Common::BNpcType::Enemy );
+          pBNpc = pTeri->createBNpcFromLayoutIdNoPush( pSpawnData->m_layoutId, pSpawnData->m_hp, Common::BNpcType::Enemy );
 
         if( pBNpc )
         {
@@ -1015,9 +1008,11 @@ namespace Sapphire::World::Encounter
           auto currFlag = pBNpc->getFlags();
           auto flags = ( currFlag & ~flagsMask ) | ( pSpawnData->m_flags & flagsMask );
 
-          pBNpc->resetFlags( flags );
+          if( !pSpawnData->m_newInstance || flagsMask )
+            pBNpc->resetFlags( flags );
           pBNpc->setInvincibilityType( static_cast< Common::InvincibilityType >( pSpawnData->m_invincibilityType ) );
-          pBNpc->init();
+          if( !pSpawnData->m_newInstance )
+            pBNpc->init();
 
           pEncounter->addBNpc( pBNpc );
           // make sure we bind this bnpc
@@ -1028,6 +1023,16 @@ namespace Sapphire::World::Encounter
           Logger::info( "Timepoint::update: BNpcSpawn for actor: {} {} Pos {} {} {}", pBNpc->getId(), pBNpc->getName(), pos.x, pos.y, pos.z );
 
           pTeri->pushActor( pBNpc );
+          if( pSpawnData->m_spawnTimeline )
+            Network::Util::Packet::sendActorControl( pBNpc->getInRangePlayerIds(), pBNpc->getId(),
+                                                     Network::ActorControl::PlaySpawnTimeline, 1, pSpawnData->m_spawnTimeline );
+
+          if( !pSpawnData->m_hateSource.empty() )
+          {
+            if( auto pSource = pack.getBNpcByRef( pSpawnData->m_hateSource, pEncounter ) )
+              if( auto pTarget = pSource->hateListGetHighest() )
+                pBNpc->aggro( pTarget );
+          }
         }
       }
       break;
