@@ -1757,7 +1757,20 @@ void Entity::Player::setPos( const Common::Vector3& pos, bool broadcastUpdate, b
 
 void Entity::Player::setPos( float x, float y, float z, bool broadcastUpdate, bool sendPacketToSelf )
 {
+  setPos( x, y, z, broadcastUpdate, sendPacketToSelf, true );
+}
+
+void Entity::Player::setPos( const Common::Vector3& pos, bool broadcastUpdate, bool sendPacketToSelf, bool sendPacketInRange )
+{
+  setPos( pos.x, pos.y, pos.z, broadcastUpdate, sendPacketToSelf, sendPacketInRange );
+}
+
+void Entity::Player::setPos( float x, float y, float z, bool broadcastUpdate, bool sendPacketToSelf, bool sendPacketInRange )
+{
   Chara::setPos( x, y, z, broadcastUpdate );
+
+  if( !sendPacketToSelf && !sendPacketInRange )
+    return;
 
   auto setActorPosPacket = makeZonePacket< FFXIVIpcWarp >( getId() );
   setActorPosPacket->data().x = x;
@@ -1765,5 +1778,8 @@ void Entity::Player::setPos( float x, float y, float z, bool broadcastUpdate, bo
   setActorPosPacket->data().z = z;
   setActorPosPacket->data().Dir = getRotUInt16();
 
-  server().queueForPlayers( getInRangePlayerIds( sendPacketToSelf ), setActorPosPacket );
+  if( sendPacketInRange )
+    server().queueForPlayers( getInRangePlayerIds( sendPacketToSelf ), setActorPosPacket );
+  else
+    server().queueForPlayer( getCharacterId(), setActorPosPacket );
 }
