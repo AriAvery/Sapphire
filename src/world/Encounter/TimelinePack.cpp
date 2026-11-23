@@ -164,29 +164,6 @@ namespace Sapphire::World::Encounter
 
       TimelineActor& actor = actorNameMap[ actorName ];
 
-      auto loadSchedules = [ & ]( const nlohmann::json& schedules, auto& owner )
-      {
-        std::set< std::string > names;
-        for( const auto& scheduleJ : schedules )
-        {
-          Schedule schedule;
-          schedule.from_json( scheduleJ );
-          if( !names.insert( schedule.m_name ).second )
-            throw std::runtime_error( "EncounterTimeline::createTimelinePack - duplicate schedule by name: " + schedule.m_name );
-
-          for( const auto& point : scheduleJ.at( "timepoints" ) )
-          {
-            Timepoint timepoint;
-            timepoint.from_json( point, actorNameMap, actor.m_layoutId );
-            schedule.addTimepoint( timepoint );
-          }
-          owner.addSchedule( schedule.m_id, schedule );
-        }
-      };
-
-      if( auto it = actorV.find( "schedules" ); it != actorV.end() )
-        loadSchedules( *it, actor );
-
       auto& phaseV = actorV.at( "phases" );
 
       for( const auto& phaseJ : phaseV.items() )
@@ -221,7 +198,22 @@ namespace Sapphire::World::Encounter
           }
         }
 
-        loadSchedules( phaseJ.value().at( "schedules" ), *pPhase );
+        std::set< std::string > names;
+        for( const auto& scheduleJ : phaseJ.value().at( "schedules" ) )
+        {
+          Schedule schedule;
+          schedule.from_json( scheduleJ );
+          if( !names.insert( schedule.m_name ).second )
+            throw std::runtime_error( "EncounterTimeline::createTimelinePack - duplicate schedule by name: " + schedule.m_name );
+
+          for( const auto& point : scheduleJ.at( "timepoints" ) )
+          {
+            Timepoint timepoint;
+            timepoint.from_json( point, actorNameMap, actor.m_layoutId );
+            schedule.addTimepoint( timepoint );
+          }
+          pPhase->addSchedule( schedule.m_id, schedule );
+        }
 
         // Triggers
         for( const auto& triggerJ : phaseJ.value().at( "triggers" ).items() )

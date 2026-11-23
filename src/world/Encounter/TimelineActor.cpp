@@ -40,16 +40,10 @@ namespace Sapphire::World::Encounter
     return m_type;
   }
 
-  void TimelineActor::addSchedule( uint32_t id, const Schedule& schedule )
-  {
-    m_schedules.emplace( id, schedule );
-  }
-
   void TimelineActor::resetTimeline()
   {
     m_pPhase.reset();
     m_state = {};
-    m_scheduleState = {};
   }
 
   void TimelineActor::addPhase( PhasePtr pPhase )
@@ -131,9 +125,6 @@ namespace Sapphire::World::Encounter
 
       transitionPhase( pEncounter, pack, time, m_phases.at( m_initialPhaseId ) );
     }
-
-    for( const auto& [ id, schedule ] : m_schedules )
-      schedule.execute( *this, pack, m_scheduleState, pEncounter, time );
 
     // update phase and schedules
     m_pPhase->update( *this, pack, m_state.m_phaseState, pEncounter, time );
@@ -298,6 +289,5 @@ namespace Sapphire::World::Encounter
   void TimelineActor::shiftTimes( uint64_t durationMs )
   {
     m_state.shiftTimes( durationMs );
-    m_scheduleState.shiftTimes( durationMs );
   }
 };

@@ -32,8 +32,6 @@ namespace Sapphire::World::Encounter
     // PARENTNAME_SUBACTOR_1, ..., PARENTNAME_SUBACTOR_69
     std::unordered_map< std::string, Entity::BNpcPtr > m_subActors;
 
-    std::map< uint32_t, Schedule > m_schedules;
-    PhaseState m_scheduleState;
     PhasePtr m_pPhase;
 
     TimelineActorState m_state;
@@ -58,7 +56,6 @@ namespace Sapphire::World::Encounter
 
       m_phases = rhs.m_phases;
       m_initialPhaseId = rhs.m_initialPhaseId;
-      m_schedules = rhs.m_schedules;
     }
 
     void setTypeEObj( const std::string& eobjName );
@@ -68,8 +65,6 @@ namespace Sapphire::World::Encounter
     TimelineActorType getType() const;
 
     void resetTimeline();
-
-    void addSchedule( uint32_t id, const Schedule& schedule );
 
     void addPhase( PhasePtr pPhase );
 
