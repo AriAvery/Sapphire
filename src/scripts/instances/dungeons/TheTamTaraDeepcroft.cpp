@@ -1,6 +1,4 @@
 #include <ScriptObject.h>
-#include <Manager/TaskMgr.h>
-#include <Task/RevealBNpcTask.h>
 #include <Territory/InstanceContent.h>
 #include <Encounter/Encounter.h>
 #include <Actor/EventObject.h>
@@ -24,23 +22,24 @@ private:
 
   enum InstanceVar : uint32_t
   {
-    SpawnsReady, DefeatedGuards, SoulcountersDefeated, RosaryGuardsDefeated, WipePending, GalvanthScene,
-    SealTime = 16
+    CurrentAltar, SoulcountersDefeated, RosaryGuardsDefeated, WipePending, GalvanthScene
   };
 
   struct Altar
   {
-    std::array< uint32_t, 5 > guards;
+    const char* key;
+    std::initializer_list< uint32_t > guards;
     uint32_t soulcounter;
     uint32_t placeName;
     uint32_t seal;
     uint32_t marker;
+    EncounterShape shape;
   };
 
   static constexpr std::array< Altar, 3 > Altars = {{
-    { { 1334952, 1334953, 1334954, 0, 0 }, 3859972, 535, 2001699, 2001700 },
-    { { 1334955, 1334956, 1334957, 1334959, 0 }, 3859980, 539, 2001701, 2001702 },
-    { { 1334960, 1334961, 1334962, 1334963, 1334965 }, 3859984, 541, 2001703, 2001704 }
+    { "Altar1", { 1334952, 1334953, 1334954 }, 3859972, 535, 2001699, 2001700, EncounterShape::POLYGON },
+    { "Altar2", { 1334955, 1334956, 1334957, 1334959 }, 3859980, 539, 2001701, 2001702, EncounterShape::POLYGON },
+    { "Altar3", { 1334960, 1334961, 1334962, 1334963, 1334965 }, 3859984, 541, 2001703, 2001704, EncounterShape::BOX }
   }};
   static constexpr std::array< uint32_t, 4 > RosaryGuards = { 2373665, 2373666, 2373667, 2380947 };
   static constexpr std::array< uint32_t, 4 > OrbIds = { 2000061, 2000062, 2000063, 2000067 };
@@ -68,44 +67,84 @@ private:
     gate->setCollisionEnabled( closed );
   }
 
-  void spawnGuards( InstanceContent& instance, const Altar& altar )
+  void setEncounterEntrance( EncounterDefinition& def, InstanceContent& instance, uint32_t gateId, uint32_t placeName )
   {
-    for( auto id : altar.guards )
+    auto gate = instance.getEObjByBaseId( gateId );
+    def.hasLockout = true;
+    def.placeName = placeName;
+    def.entrances = {
+      { gate->getName(), gateId, gate->getBoundInstanceId(), gate->getInstanceId(), gate->getState(),
+        gate->getPos(), gate->getScale(), gate->getRot(), 7, gate->getAnimation(), false, EncounterEntityRemoveFlag::None }
+    };
+  }
+
+  void registerAltar( InstanceContent& instance, const Altar& altar )
+  {
+    EncounterDefinition def{};
+    def.key = altar.key;
+    def.timeline = "dungeons/tamtara/" + def.key;
+    def.shape = altar.shape;
+    if( def.shape == EncounterShape::BOX )
     {
-      if( id != 0 )
+      def.position = { -104.f, 12.f, -3.f };
+      def.position2 = { -81.f, 18.f, 44.3171f };
+    }
+    else
+      def.shapeFileName = def.timeline;
+
+    for( auto layoutId : altar.guards )
+      def.participants.push_back( { layoutId, layoutId == *altar.guards.begin() ? 516u : 577u,
+                                    Common::BNpcType::Enemy, 0, EncounterBNpcCompletionRole::Required } );
+
+    def.bgmInCombat = 37;
+    setEncounterEntrance( def, instance, altar.seal, altar.placeName );
+    instance.registerEncounterDefinition( def, instance.getAsInstanceContent() );
+  }
+
+  Entity::BNpcPtr getEngagedGuard( const World::Encounter::Encounter& encounter, const Altar& altar )
+  {
+    for( auto layoutId : altar.guards )
+    {
+      auto guard = encounter.getBNpc( layoutId );
+      if( guard && ( !guard->isAlive() || guard->hateListGetHighestValue() > 0 ) )
+        return guard;
+    }
+    return nullptr;
+  }
+
+  void updateAltars( InstanceContent& instance, uint64_t tickCount )
+  {
+    auto current = instance.getCustomVar( CurrentAltar );
+    if( !current )
+    {
+      for( size_t i = 0; i < Altars.size(); ++i )
       {
-        if( auto guard = instance.createBNpcFromLayoutId( id, id == altar.guards.front() ? 516 : 577, Common::BNpcType::Enemy ) )
-          instance.pushActor( guard );
+        const auto& altar = Altars[ i ];
+        auto encounter = instance.getEncounter( altar.key );
+        if( encounter->getStatus() != EncounterStatus::IDLE )
+          continue;
+
+        if( auto guard = getEngagedGuard( *encounter, altar ) )
+        {
+          if( auto target = guard->hateListGetHighest() )
+            encounter->onEnterRange( target );
+          encounter->start();
+          current = i + 1;
+          instance.setCustomVar( CurrentAltar, current );
+          break;
+        }
       }
     }
-  }
-
-  void updateSeal( InstanceContent& instance, uint32_t arena, uint64_t time, bool engaged,
-                   uint32_t place, uint32_t gate )
-  {
-    auto started = instance.getCustomVar( SealTime + arena );
-    if( !started && engaged )
+    if( current )
     {
-      announce( instance, 2012, { place } );
-      if( arena < Altars.size() )
-        instance.setCurrentBGM( 37 );
-      instance.setCustomVar( SealTime + arena, time );
+      auto encounter = instance.getEncounter( Altars[ current - 1 ].key );
+      encounter->update( tickCount );
+      if( encounter->getStatus() != EncounterStatus::ACTIVE )
+      {
+        instance.setCustomVar( CurrentAltar, 0 );
+        instance.setCurrentBGM( 0 );
+      }
     }
-    else if( started && time >= started + 15000 && !instance.getEObjByBaseId( gate )->isCollisionEnabled() )
-    {
-      setGate( instance, gate, true );
-      announce( instance, 2013, { place } );
-    }
-  }
-
-  void releaseSeal( InstanceContent& instance, uint32_t arena, uint32_t place, uint32_t gate, uint32_t marker )
-  {
-    instance.setCustomVar( SealTime + arena, 0 );
-    setGate( instance, gate, false );
-    instance.getEObjByBaseId( marker )->setPermissionInvisibility( 7 );
-    announce( instance, 2014, { place } );
-    if( arena < Altars.size() )
-      instance.setCurrentBGM( 0 );
   }
 
   void updateGalvanthScene( InstanceContent& instance )
@@ -152,6 +191,7 @@ private:
     encounter.timeline = "dungeons/tamtara/Galvanth";
     encounter.shape = EncounterShape::POLYGON;
     encounter.shapeFileName = "dungeons/tamtara/Galvanth";
+    setEncounterEntrance( encounter, instance, 2001741, 543 );
     encounter.participants = {
       { Galvanth, 6329, Common::BNpcType::Enemy, Entity::NoRoam | Entity::AutoAttackDisabled,
         EncounterBNpcCompletionRole::Required }
@@ -243,6 +283,8 @@ public:
     setGate( instance, 2001698, true );
     for( auto id : { 2001699, 2001701, 2001703, 2001741 } )
       setGate( instance, id, false );
+    for( const auto& altar : Altars )
+      registerAltar( instance, altar );
     instance.getEObjByBaseId( 2000139 )->setPermissionInvisibility( 7 );
     instance.getEObjByBaseId( 2000700 )->setPermissionInvisibility( 7 );
   }
@@ -253,11 +295,11 @@ public:
       return;
 
     instance.getEObjByBaseId( 2000182 )->setCollisionEnabled( false );
-    if( !instance.getCustomVar( SpawnsReady ) )
+    for( auto i : { 0, 1 } )
     {
-      spawnGuards( instance, Altars[ 0 ] );
-      spawnGuards( instance, Altars[ 1 ] );
-      instance.setCustomVar( SpawnsReady, 1 );
+      auto encounter = instance.getEncounter( Altars[ i ].key );
+      if( encounter->getStatus() == EncounterStatus::UNINITIALIZED )
+        encounter->init();
     }
   }
 
@@ -266,36 +308,21 @@ public:
     if( instance.getState() == DutyReset )
       instance.getEObjByBaseId( 2000182 )->setCollisionEnabled( true );
 
-    auto defeated = instance.getCustomVar( DefeatedGuards );
-    auto cleared = instance.getCustomVar( SoulcountersDefeated );
-    for( size_t i = 0; i < Altars.size(); ++i )
+    for( const auto& altar : Altars )
     {
-      const auto& altar = Altars[ i ];
-      auto mask = 0x1fu << ( i * 5 );
-      if( ( cleared & ( 1u << i ) ) || ( !( defeated & mask ) && !instance.getCustomVar( SealTime + i ) ) )
-        continue;
-
-      if( auto soulcounter = instance.getActiveBNpcByLayoutId( altar.soulcounter ) )
-        instance.removeActor( soulcounter );
-      for( auto id : altar.guards )
+      auto encounter = instance.getEncounter( altar.key );
+      const auto status = encounter->getStatus();
+      if( status == EncounterStatus::ACTIVE || ( status == EncounterStatus::IDLE && getEngagedGuard( *encounter, altar ) ) )
       {
-        if( id )
-        {
-          if( auto guard = instance.getActiveBNpcByLayoutId( id ) )
-            instance.removeActor( guard );
-        }
+        encounter->setStatus( EncounterStatus::FAIL );
+        instance.setCurrentBGM( 0 );
       }
-      defeated &= ~mask;
-      releaseSeal( instance, i, altar.placeName, altar.seal, altar.marker );
-      instance.getEObjByBaseId( altar.marker )->setPermissionInvisibility( 0 );
-      spawnGuards( instance, altar );
     }
-    instance.setCustomVar( DefeatedGuards, defeated );
+    instance.setCustomVar( CurrentAltar, 0 );
 
     auto encounter = instance.getEncounter( "Galvanth" );
     if( encounter && encounter->getStatus() == EncounterStatus::ACTIVE )
     {
-      releaseSeal( instance, 3, 543, 2001741, 2001085 );
       instance.getEObjByBaseId( 2001085 )->setPermissionInvisibility( 0 );
       encounter->setStatus( EncounterStatus::FAIL );
     }
@@ -323,17 +350,7 @@ public:
 
     updateGalvanthScene( instance );
 
-    auto cleared = instance.getCustomVar( SoulcountersDefeated );
-    for( size_t i = 0; i < Altars.size(); ++i )
-    {
-      if( cleared & ( 1u << i ) )
-        continue;
-
-      const auto& altar = Altars[ i ];
-      auto priest = instance.getActiveBNpcByLayoutId( altar.guards.front() );
-      bool engaged = priest && priest->hateListGetHighestValue() > 0;
-      updateSeal( instance, i, tickCount, engaged, altar.placeName, altar.seal );
-    }
+    updateAltars( instance, tickCount );
 
     auto encounter = instance.getEncounter( "Galvanth" );
     if( !encounter )
@@ -356,13 +373,11 @@ public:
 
     if( !target )
     {
-      releaseSeal( instance, 3, 543, 2001741, 2001085 );
       instance.getEObjByBaseId( 2001085 )->setPermissionInvisibility( 0 );
       encounter->setStatus( EncounterStatus::FAIL );
       return;
     }
 
-    updateSeal( instance, 3, tickCount, true, 543, 2001741 );
     encounter->update( tickCount );
   }
 
@@ -390,36 +405,22 @@ public:
       if( id == altar.soulcounter )
       {
         instance.setCustomVar( SoulcountersDefeated, instance.getCustomVar( SoulcountersDefeated ) | ( 1u << i ) );
-        releaseSeal( instance, i, altar.placeName, altar.seal, altar.marker );
+        instance.getEncounter( altar.key )->setStatus( EncounterStatus::SUCCESS );
+        instance.setCustomVar( CurrentAltar, 0 );
+        instance.setCurrentBGM( 0 );
+        instance.getEObjByBaseId( altar.marker )->setPermissionInvisibility( 7 );
         announce( instance, 2006 );
         if( i == 0 )
           instance.getEObjByBaseId( 2000700 )->setPermissionInvisibility( 0 );
         return;
       }
 
-      auto guard = std::find( altar.guards.begin(), altar.guards.end(), id );
-      if( guard == altar.guards.end() || id == 0 )
-        continue;
-
-      auto bit = 1u << ( i * 5 + std::distance( altar.guards.begin(), guard ) );
-      auto defeated = instance.getCustomVar( DefeatedGuards );
-      if( defeated & bit )
-        return;
-      defeated |= bit;
-      instance.setCustomVar( DefeatedGuards, defeated );
-
-      auto count = std::count_if( altar.guards.begin(), altar.guards.end(), []( uint32_t layoutId ) { return layoutId != 0; } );
-      auto mask = ( ( 1u << count ) - 1 ) << ( i * 5 );
-      if( ( defeated & mask ) == mask )
+      if( std::find( altar.guards.begin(), altar.guards.end(), id ) != altar.guards.end() )
       {
-        if( auto demon = instance.createBNpcFromLayoutId( altar.soulcounter, 4128, Common::BNpcType::Enemy ) )
-        {
+        if( instance.getEncounter( altar.key )->areRequiredParticipantsDefeated() )
           announce( instance, 2009, { 455, 1 } );
-          Common::Service< World::Manager::TaskMgr >::ref().queueTask( std::make_shared< World::RevealBNpcTask >( 500, demon ) );
-          instance.pushActor( demon );
-        }
+        return;
       }
-      return;
     }
 
     auto rosaryGuard = std::find( RosaryGuards.begin(), RosaryGuards.end(), id );
@@ -432,8 +433,8 @@ public:
     }
     else if( id == Galvanth && instance.getEncounter( "Galvanth" )->areRequiredParticipantsDefeated() )
     {
-      releaseSeal( instance, 3, 543, 2001741, 2001085 );
       instance.getEncounter( "Galvanth" )->setStatus( EncounterStatus::SUCCESS );
+      instance.getEObjByBaseId( 2001085 )->setPermissionInvisibility( 7 );
       instance.getEObjByBaseId( 2000139 )->setPermissionInvisibility( 0 );
       instance.finishDuty( false );
       instance.setCustomVar( GalvanthScene, 0 );
@@ -481,7 +482,7 @@ public:
     {
       instance.setDirectorVar( BrokenBarrier, 1 );
       eobj.setCollisionEnabled( false );
-      spawnGuards( instance, Altars[ 2 ] );
+      instance.getEncounter( Altars[ 2 ].key )->init();
       announce( instance, 1536, { 0 } );
     }
     else

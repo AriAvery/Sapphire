@@ -22,6 +22,8 @@
 #include <Manager/ActionMgr.h>
 #include <Manager/PlayerMgr.h>
 #include <Manager/MgrUtil.h>
+#include <Manager/TaskMgr.h>
+#include <Task/RevealBNpcTask.h>
 
 #include <Random/RNGMgr.h>
 
@@ -344,6 +346,7 @@ namespace Sapphire::World::Encounter
         pSpawn->m_newInstance = newInstance;
         pSpawn->m_hp = dataJ.value( "hp", 100u );
         pSpawn->m_spawnTimeline = dataJ.value( "spawnTimeline", 0u );
+        pSpawn->m_revealDelay = dataJ.value( "revealDelay", 0u );
         pSpawn->m_group = dataJ.value( "group", std::string() );
         if( auto it = dataJ.find( "hateSource" ); it != dataJ.end() && !it->is_null() )
         {
@@ -1033,6 +1036,8 @@ namespace Sapphire::World::Encounter
           auto pos = pBNpc->getPos();
           Logger::info( "Timepoint::update: BNpcSpawn for actor: {} {} Pos {} {} {}", pBNpc->getId(), pBNpc->getName(), pos.x, pos.y, pos.z );
 
+          if( pSpawnData->m_revealDelay )
+            Common::Service< Manager::TaskMgr >::ref().queueTask( std::make_shared< RevealBNpcTask >( pSpawnData->m_revealDelay, pBNpc ) );
           pTeri->pushActor( pBNpc, pSpawnData->m_spawnTimeline );
 
           using SpawnHate = TimepointDataBNpcSpawn::SpawnHate;

@@ -216,6 +216,8 @@ namespace Sapphire::World::Encounter
     void removeEObj( Entity::EventObjectPtr pEObj );
     void removeEObjs();
 
+    void sendSealMessage( EncounterLogMessage message );
+
     bool canBindActors() const;
     void bindActor( Entity::GameObjectPtr pActor );
     void unbindActor( Entity::GameObjectPtr pActor );

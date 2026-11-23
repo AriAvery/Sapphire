@@ -500,10 +500,8 @@ namespace Sapphire::World::Encounter
       // todo: FATEs should just despawn rather than reset
 
       // send no longer sealed message
-      if( m_definition.placeName != 0 && isLocked() )
-        if( auto pInstance = m_pTeri->getAsInstanceContent() )
-          for( auto [ id, pPlayer ] : m_pTeri->getPlayers() )
-            pInstance->sendEventLogMessage( *pPlayer, *pInstance, static_cast< uint32_t >( EncounterLogMessage::IsNoLongerSealed ), { m_definition.placeName } );
+      if( isLocked() )
+        sendSealMessage( EncounterLogMessage::IsNoLongerSealed );
 
       // send bgm reset
       if( m_definition.bgmToRestore != 0 )
@@ -517,10 +515,8 @@ namespace Sapphire::World::Encounter
       unbindActors();
 
       // send no longer sealed message
-      if( m_definition.placeName != 0 && isLocked() )
-        if( auto pInstance = m_pTeri->getAsInstanceContent() )
-          for( auto [ id, pPlayer ] : m_pTeri->getPlayers() )
-            pInstance->sendEventLogMessage( *pPlayer, *pInstance, static_cast< uint32_t >( EncounterLogMessage::IsNoLongerSealed ), { m_definition.placeName } );
+      if( isLocked() )
+        sendSealMessage( EncounterLogMessage::IsNoLongerSealed );
 
 
       auto bgmToRestore = m_definition.bgmOnFinishTeri != 0 ? m_definition.bgmOnFinishTeri : m_definition.bgmToRestore;
@@ -544,10 +540,8 @@ namespace Sapphire::World::Encounter
     else if( newStatus == EncounterStatus::IDLE )
     {
       // send no longer sealed message
-      if( m_definition.placeName != 0 && isLocked() )
-        if( auto pInstance = m_pTeri->getAsInstanceContent() )
-          for( auto [ id, pPlayer ] : m_pTeri->getPlayers() )
-            pInstance->sendEventLogMessage( *pPlayer, *pInstance, static_cast< uint32_t >( EncounterLogMessage::IsNoLongerSealed ), { m_definition.placeName } );
+      if( isLocked() )
+        sendSealMessage( EncounterLogMessage::IsNoLongerSealed );
 
       // send bgm reset
       if( m_definition.bgmToRestore != 0 )
@@ -560,15 +554,20 @@ namespace Sapphire::World::Encounter
     {
       m_startTime = Common::Util::getTimeMs();
 
-      if( m_definition.placeName != 0 )
-        if( auto pInstance = m_pTeri->getAsInstanceContent() )
-          for( auto [ id, pPlayer ] : m_pTeri->getPlayers() )
-            pInstance->sendEventLogMessage( *pPlayer, *pInstance, static_cast< uint32_t >( EncounterLogMessage::WillBeSealed ), { m_definition.placeName } );
+      sendSealMessage( EncounterLogMessage::WillBeSealed );
 
       if( m_definition.bgmInCombat != 0 )
         if( auto pInstance = m_pTeri->getAsInstanceContent() )
           pInstance->setCurrentBGM( m_definition.bgmInCombat );
     }
+  }
+
+  void Encounter::sendSealMessage( EncounterLogMessage message )
+  {
+    const auto& players = m_pTeri->getPlayers();
+    if( m_definition.placeName && !players.empty() )
+      if( auto instance = m_pTeri->getAsInstanceContent() )
+        instance->sendEventLogMessage( *players.begin()->second, *instance, static_cast< uint32_t >( message ), { m_definition.placeName } );
   }
 
   void Encounter::onLockout()
@@ -578,10 +577,7 @@ namespace Sapphire::World::Encounter
     for( auto& pActor : m_actorsInside )
       bindActor( pActor );
 
-    if( m_definition.placeName != 0 )
-      if( auto pInstance = m_pTeri->getAsInstanceContent() )
-       for( auto [ id, pPlayer ] : m_pTeri->getPlayers() )
-          pInstance->sendEventLogMessage( *pPlayer, *pInstance, static_cast< uint32_t >( EncounterLogMessage::IsSealed ), { m_definition.placeName } );
+    sendSealMessage( EncounterLogMessage::IsSealed );
 
     setEntranceEObjLocked( true );
     setExitEObjLocked( true );
@@ -603,7 +599,7 @@ namespace Sapphire::World::Encounter
         }
         else
         {
-          pEObj->setPermissionInvisibility( 1 );
+          pEObj->setPermissionInvisibility( m_setupEObjs.at( eobj.first ).permissionInvisibility );
           pEObj->setCollisionEnabled( false );
         }
       }
