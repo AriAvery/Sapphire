@@ -10,6 +10,7 @@
 #include <string>
 
 #include "vec3.h"
+#include "LayoutSection.h"
 #include "DatCategories/Layer.h"
 #include "DatCategories/InstanceObjectParser.h"
 #include <set>
@@ -126,26 +127,64 @@ struct SGB_HEADER
   int ChunkSize;
 };
 
+struct SGTimelineBindings
+{
+  uint8_t NamePlateInstanceID;
+  uint8_t TimelineShowingID;
+  uint8_t TimelineHidingID;
+  uint8_t TimelineShownID;
+  uint8_t TimelineHiddenID;
+  uint8_t GeneralPurposeTimelineIDs[ 16 ];
+};
+
+struct SGTimelineData
+{
+  SGTimelineBindings bindings{};
+  std::vector< SGTimeline_t > timelines;
+  std::map< uint32_t, std::string > names;
+
+  explicit SGTimelineData( const LayoutSection& section )
+  {
+    const auto base = section.chunk( "SGB1", "SCN1" );
+    const auto scene = section.read< Scene_t >( base );
+    if( scene.SGSettings )
+      bindings = section.read< SGTimelineBindings >( section.relative( base, scene.SGSettings ) );
+    if( !scene.SGTimelineFolder )
+      return;
+
+    const auto at = section.relative( base, scene.SGTimelineFolder );
+    const auto folder = section.read< SGTimelineFolder_t >( at );
+    const auto entries = section.table( at, folder.SGTimelines, folder.SGTimeline_Count, sizeof( SGTimeline_t ) );
+    for( int i = 0; i < folder.SGTimeline_Count; ++i )
+    {
+      const auto offset = entries + i * sizeof( SGTimeline_t );
+      const auto timeline = section.read< SGTimeline_t >( offset );
+      timelines.push_back( timeline );
+      names.emplace( timeline.MemberID, section.stringAt( offset, timeline.Name ) );
+    }
+  }
+};
+
 struct SGB_FILE
 {
   SGB_HEADER header = {};
   Scene_t scene;
   SceneSettings_t sceneSettings;
   LayerGroup layerGroup;
-  SGTimelineFolder_t sgTimelineFolder{};
-  std::vector< SGTimeline_t > timelines;
-  std::vector< std::string > timelineNames;
+  SGTimelineData timelineData;
   std::vector< Layer > layers;
 
   std::unordered_map< uint32_t, std::vector< std::shared_ptr< InstanceObjectEntry > > > layerInstanceObjects;
 
-  SGB_FILE( char *buf )
+  explicit SGB_FILE( char* buf ) : SGB_FILE( buf, SGTimelineData( { buf, reinterpret_cast< SGB_HEADER* >( buf )->fileSize } ) )
+  {
+  }
+
+  SGB_FILE( char* buf, SGTimelineData timelines ) : timelineData( std::move( timelines ) )
   {
     constexpr int baseOffset = 0x14;
     header = *reinterpret_cast< SGB_HEADER * >( buf );
     scene = *reinterpret_cast< Scene_t * >( buf + sizeof( SGB_HEADER ) );
-    if( scene.SGTimelineFolder )
-      sgTimelineFolder = *reinterpret_cast< SGTimelineFolder_t * >( buf + sizeof( SGB_HEADER ) + scene.SGTimelineFolder );
     sceneSettings = *reinterpret_cast< SceneSettings_t * >( buf + sizeof( SGB_HEADER ) + scene.Settings );
     layerGroup = *reinterpret_cast< LayerGroup * >( buf + sizeof( SGB_HEADER ) + scene.LayerGroups );
 
@@ -241,21 +280,6 @@ struct SGB_FILE
         }
       }
     }
-
-
-    for( auto i = 0; i < sgTimelineFolder.SGTimeline_Count; ++i )
-    {
-      timelines.push_back(
-        *reinterpret_cast< SGTimeline_t * >( buf + sizeof( SGB_HEADER ) + scene.SGTimelineFolder + sgTimelineFolder.
-                                             SGTimelines + i * sizeof( SGTimeline_t ) ) );
-      timelineNames.emplace_back(
-        buf + sizeof( SGB_HEADER ) + scene.SGTimelineFolder + sgTimelineFolder.SGTimelines + i * sizeof( SGTimeline_t )
-        + timelines.back().Name );
-    }
-
-    if( strncmp( &header.magic[ 0 ], "SGB1", 4 ) != 0 || strncmp( &header.ChunkID[ 0 ], "SCN1", 4 ) != 0 )
-      throw std::runtime_error( "Unable to load SGB File!" );
-
   };
 };
 

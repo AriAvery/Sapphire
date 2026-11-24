@@ -26,7 +26,7 @@ file( GLOB_RECURSE SOURCES
   *.h
 )
 
-add_executable( Toolkit ${SOURCES} ../event_object_parser/EObjTimelines.cpp )
+add_executable( Toolkit ${SOURCES} )
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 target_link_libraries( Toolkit PRIVATE
   common

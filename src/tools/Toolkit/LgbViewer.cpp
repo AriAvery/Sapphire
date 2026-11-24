@@ -3186,7 +3186,7 @@ void LgbViewer::showSGEntryView( SharedGroupEntry *entry )
         if( ImGui::CollapsingHeader( "Scene", ImGuiTreeNodeFlags_DefaultOpen ) )
         {
           ImGui::Text( "Layer Group Count: %d", sgbFile.layerGroup.Layer_Count );
-          ImGui::Text( "Timeline Count: %d", sgbFile.sgTimelineFolder.SGTimeline_Count );
+          ImGui::Text( "Timeline Count: %d", static_cast< int >( sgbFile.timelineData.timelines.size() ) );
         }
 
         // Scene Settings
@@ -3212,12 +3212,12 @@ void LgbViewer::showSGEntryView( SharedGroupEntry *entry )
         }
 
         // Timelines
-        if( ImGui::CollapsingHeader( "Timelines" ) && !sgbFile.timelines.empty() )
+        if( ImGui::CollapsingHeader( "Timelines" ) && !sgbFile.timelineData.timelines.empty() )
         {
-          for( size_t i = 0; i < sgbFile.timelines.size(); ++i )
+          for( size_t i = 0; i < sgbFile.timelineData.timelines.size(); ++i )
           {
-            const auto& timeline = sgbFile.timelines[i];
-            const auto& timelineName = i < sgbFile.timelineNames.size() ? sgbFile.timelineNames[i] : "Unknown";
+            const auto& timeline = sgbFile.timelineData.timelines[i];
+            const auto& timelineName = sgbFile.timelineData.names.at( timeline.MemberID );
 
             if( ImGui::TreeNode( ( "Timeline " + std::to_string( i ) + ": " + timelineName ).c_str() ) )
             {

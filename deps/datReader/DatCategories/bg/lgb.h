@@ -88,37 +88,58 @@ struct LGB_GROUP
   std::vector< std::shared_ptr< InstanceObjectEntry > > entries;
   std::vector< LayerSetReferenced > refs;
 
-  LGB_GROUP( char* buf, LGB_FILE* parentStruct, size_t offset, const AssetTypeFilter* pTypeFilter = nullptr )
+  LGB_GROUP( char* buf, const LayoutSection& section, LGB_FILE* parentStruct, size_t offset,
+             bool extended, const AssetTypeFilter* pTypeFilter ) : parent( parentStruct ), header{}, layerSetReferencedList{}
   {
-    parent = parentStruct;
-    header = *reinterpret_cast< Layer* >( buf + offset );
-    name = std::string( buf + offset + header.Name );
-
-    //std::cout << name << " groups: " << header.InstanceObject_Count << " " << header.InstanceObjects << std::endl;
-
-    layerSetReferencedList = *reinterpret_cast< LayerSetReferencedList* >( buf + offset + header.LayerSetRef );
-
-    if( layerSetReferencedList.LayerSetCount > 0 )
+    if( extended )
     {
-      refs.resize( layerSetReferencedList.LayerSetCount );
-      memcpy( (char*)&refs[0], buf + offset + header.LayerSetRef + layerSetReferencedList.LayerSets, layerSetReferencedList.LayerSetCount * sizeof( LayerSetReferenced ) );
+      // Extended layers share the prefix through FestivalPhaseID, followed by the OBSet reference table.
+      section.read< uint32_t >( offset + 32 );
+      memcpy( &header, buf + offset, offsetof( Layer, IsTemporary ) );
+      header.OBSetReferencedList = section.read< int32_t >( offset + 28 );
+      header.OBSetReferencedList_Count = section.read< int32_t >( offset + 32 );
+    }
+    else
+      header = section.read< Layer >( offset );
+
+    name = section.stringAt( offset, header.Name );
+    if( header.LayerSetRef )
+    {
+      const auto ref = section.relative( offset, header.LayerSetRef );
+      layerSetReferencedList = section.read< LayerSetReferencedList >( ref );
+      const auto count = layerSetReferencedList.LayerSetCount;
+      const auto table = section.table( ref, layerSetReferencedList.LayerSets, count, sizeof( LayerSetReferenced ) );
+      refs.resize( count );
+      if( count )
+        memcpy( refs.data(), buf + table, count * sizeof( LayerSetReferenced ) );
     }
 
+    const auto entriesOffset = section.table( offset, header.InstanceObjects, header.InstanceObject_Count, 4 );
     entries.reserve( header.InstanceObject_Count );
-
-    const auto entriesOffset = offset + header.InstanceObjects;
-
-    for( auto i = 0; i < header.InstanceObject_Count; ++i )
+    for( int i = 0; i < header.InstanceObject_Count; ++i )
     {
-      const auto entryOffset = entriesOffset + *reinterpret_cast< int32_t* >( buf + ( entriesOffset + i * 4 ) );
+      const auto entryOffset = section.relative( entriesOffset, section.read< int32_t >( entriesOffset + i * 4 ) );
+      const auto type = section.read< eAssetType >( entryOffset );
+      if( pTypeFilter && !( *pTypeFilter )( type ) )
+        continue;
 
+      // These two entries are also read independently by the Zone Editor.
+      if( type == eAssetType::SharedGroup )
+      {
+        const auto sg = section.read< SGData >( entryOffset );
+        entries.emplace_back( std::make_shared< SharedGroupEntry >( buf, entryOffset, sg,
+          section.stringAt( entryOffset, sg.Name ), section.stringAt( entryOffset, sg.AssetPath ) ) );
+        continue;
+      }
+      if( type == eAssetType::EventObject )
+      {
+        const auto obj = section.read< EObjData >( entryOffset );
+        entries.emplace_back( std::make_shared< EventObjectEntry >( buf, entryOffset, obj,
+          section.stringAt( entryOffset, obj.Name ) ) );
+        continue;
+      }
       try
       {
-        const auto type = *reinterpret_cast< eAssetType* >( buf + entryOffset );
-
-        if( pTypeFilter && !( *pTypeFilter )( type ) )
-          continue;
-
         switch( type )
         {
           case eAssetType::BG:
@@ -126,19 +147,9 @@ struct LGB_GROUP
             entries.emplace_back( std::make_shared< BGEntry >( buf, entryOffset ) );
             break;
           }
-          case eAssetType::SharedGroup:
-          {
-            entries.emplace_back( std::make_shared< SharedGroupEntry >( buf, entryOffset ) );
-            break;
-          }
           case eAssetType::EventNPC:
           {
             entries.emplace_back( std::make_shared< EventNPCEntry >( buf, entryOffset ) );
-            break;
-          }
-          case eAssetType::EventObject:
-          {
-            entries.emplace_back( std::make_shared< EventObjectEntry >( buf, entryOffset ) );
             break;
           }
           case eAssetType::ExitRange:
@@ -209,24 +220,44 @@ struct LGB_FILE
 
   LGB_FILE( char* buf, const std::string& name, const AssetTypeFilter* pTypeFilter = nullptr ) : LGB_FILE( buf, pTypeFilter )
   {
-    m_name = std::string( buf + 20 + header.nameOff );
   }
 
-  LGB_FILE( char* buf, const AssetTypeFilter* pTypeFilter = nullptr )
+  LGB_FILE( char* buf, const AssetTypeFilter* pTypeFilter = nullptr ) :
+    LGB_FILE( buf, reinterpret_cast< LGB_FILE_HEADER* >( buf )->fileSize, pTypeFilter )
   {
-    header = *reinterpret_cast< LGB_FILE_HEADER* >( buf );
-    m_name = std::string( buf + 20 +  header.nameOff );
-    if( strncmp( &header.magic[ 0 ], "LGB1", 4 ) != 0 || strncmp( &header.magic2[ 0 ], "LGP1", 4 ) != 0 )
-      throw std::runtime_error( "Invalid LGB file!" );
+  }
 
-    constexpr auto baseOffset = sizeof( header );
-    groups.reserve( header.groupCount );
-    for( size_t i = 0; i < header.groupCount; ++i )
+  LGB_FILE( char* buf, size_t size, const AssetTypeFilter* pTypeFilter )
+  {
+    const LayoutSection section{ buf, size };
+    const auto base = section.chunk( "LGB1", "LGP1" );
+    header = section.read< LGB_FILE_HEADER >( 0 );
+    const auto group = section.read< LayerGroup >( base );
+    m_name = section.stringAt( base, group.Name );
+    if( base != 20 )
     {
-      const auto groupOffset = baseOffset + *reinterpret_cast< int32_t* >( buf + ( baseOffset + i * 4 ) );
-      groups.emplace_back( buf, this, groupOffset, pTypeFilter );
+      memcpy( header.magic2, "LGP1", 4 );
+      header.chunkSize = section.read< uint32_t >( 36 );
+      header.layerGroupId = group.LayerGroupID;
+      header.nameOff = group.Name;
+      header.groups = group.Layers;
+      header.groupCount = group.Layer_Count;
     }
-  };
+    readLayers( buf, section, base, base != 20, pTypeFilter, groups, this );
+  }
+
+  static void readLayers( char* buf, const LayoutSection& section, size_t base, bool extended,
+                          const AssetTypeFilter* pTypeFilter, std::vector< LGB_GROUP >& groups,
+                          LGB_FILE* parent = nullptr )
+  {
+    const auto group = section.read< LayerGroup >( base );
+    const auto layers = section.table( base, group.Layers, group.Layer_Count, 4 );
+    for( int i = 0; i < group.Layer_Count; ++i )
+    {
+      const auto offset = section.relative( layers, section.read< int32_t >( layers + i * 4 ) );
+      groups.emplace_back( buf, section, parent, offset, extended, pTypeFilter );
+    }
+  }
 };
 
 /*

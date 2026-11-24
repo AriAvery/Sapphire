@@ -9,7 +9,7 @@
 #include <regex>
 #include <optional>
 #include "commonshader.h"
-#include "../event_object_parser/EObjTimelines.h"
+#include <datReader/DatCategories/bg/sgb.h>
 #include "Exd/ExdData.h"
 #include "glm/vec2.hpp"
 #include "glm/vec3.hpp"
@@ -143,8 +143,26 @@ private:
   std::unordered_map< uint32_t, std::unique_ptr< CachedZoneInfo > > m_cachedZones;
   std::vector< CachedZoneInfo * > m_filteredZones; // For search results
 
-  std::optional< EObjTimelines::Zone > m_timelineZone;
-  std::optional< EObjTimelines::Mapping > m_timelineMapping;
+  struct EObjPlacement
+  {
+    uint32_t baseId;
+    uint32_t instanceId;
+    uint32_t boundId;
+    std::string name;
+    std::string layer;
+    std::string path;
+    std::string status;
+  };
+
+  struct EObjTimelineZone
+  {
+    std::vector< EObjPlacement > objects;
+    std::vector< std::string > errors;
+  };
+
+  static EObjTimelineZone loadEObjPlacements( Sapphire::Data::ExdData& exd, const std::string& lvb );
+  std::optional< EObjTimelineZone > m_timelineZone;
+  std::optional< SGTimelineData > m_timelineMapping;
   int m_timelineObject = -1;
   char m_timelineFilter[128]{};
   void showEObjTimelines();

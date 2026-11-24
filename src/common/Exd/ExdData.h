@@ -26,6 +26,8 @@ namespace Sapphire::Data
   class ExdData
   {
   public:
+    std::string getEObjSharedGroupPath( uint32_t baseId );
+
     bool init( const std::string& path );
 
     template< typename T >

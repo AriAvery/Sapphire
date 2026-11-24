@@ -30,7 +30,6 @@
 
 #include <filesystem>
 
-#include "EObjTimelines.h"
 #include "vec3.h"
 #include "matrix4.h"
 
@@ -317,7 +316,7 @@ float composeCollisionRotation( const vec3& parentRotation, const vec3& localRot
   return directionFromForward( forward );
 }
 
-std::string describeTimelineBindings( const EObjTimelines::Mapping& mapping )
+std::string describeTimelineBindings( const SGTimelineData& mapping )
 {
   const auto& bindings = mapping.bindings;
   const auto& names = mapping.names;
@@ -621,7 +620,7 @@ int main( int argc, char* argv[] )
           }
           else
           {
-            path = EObjTimelines::exportedPath( g_exdData, object->header.BaseId );
+            path = g_exdData.getEObjSharedGroupPath( object->header.BaseId );
             if( path.empty() )
             {
               eobjLine += "    // No shared group or general timeline slots\n";
@@ -631,15 +630,13 @@ int main( int argc, char* argv[] )
 
           auto file = g_gameData->getFile( path );
           auto& section = file->access_data_sections().at( 0 );
-          if( section.size() < sizeof( SGB_HEADER ) + sizeof( Scene_t ) )
-            throw std::runtime_error( "Missing SGB scene" );
-          const auto description = "    // SGB: " + path + "\n" + describeTimelineBindings( EObjTimelines::readMapping( section ) );
+          SGTimelineData timelines( { section.data(), section.size() } );
+          const auto description = "    // SGB: " + path + "\n" + describeTimelineBindings( timelines );
           eobjLine += description;
           std::cout << "EObj " << object->header.BaseId << " (layout " << instanceId << ")\n" << description;
           if( pBoundGroup )
           {
-            SGB_FILE sgbFile( section.data() );
-            int memberIdx = 0;
+            SGB_FILE sgbFile( section.data(), std::move( timelines ) );
             for( auto& [ layerId, layers ] : sgbFile.layerInstanceObjects )
             {
               for( auto& instanceObject : layers )
@@ -705,13 +702,11 @@ int main( int argc, char* argv[] )
               }
             }
 
-            if( !sgbFile.timelines.empty() )
+            if( !sgbFile.timelineData.timelines.empty() )
               std::cout << "\t\tTimelines: " << "\n";
-            for( auto& timeline : sgbFile.timelines )
+            for( const auto& timeline : sgbFile.timelineData.timelines )
             {
-
-
-              std::cout << "\t\t-- " << timeline.MemberID << " - " << sgbFile.timelineNames[ memberIdx ] << "\n";
+              std::cout << "\t\t-- " << timeline.MemberID << " - " << sgbFile.timelineData.names.at( timeline.MemberID ) << "\n";
               const char* collisionStateStr = "Unknown";
               switch( timeline.CollisionState )
               {
@@ -727,7 +722,6 @@ int main( int argc, char* argv[] )
               }
               std::cout << "\t\t\t-- CollisionState:" << collisionStateStr << "\n";
 
-              ++memberIdx;
             }
           }
         }

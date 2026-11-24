@@ -39,6 +39,7 @@
 #include "Application.h"
 
 #include "ZoneEditor.h"
+#include <datReader/DatCategories/bg/lvb.h>
 #include "Service.h"
 #include <algorithm>
 #include <cctype>
@@ -5305,6 +5306,97 @@ void ZoneEditor::showZoneList()
   ImGui::EndChild();
 }
 
+ZoneEditor::EObjTimelineZone ZoneEditor::loadEObjPlacements( Sapphire::Data::ExdData& exd, const std::string& lvb )
+{
+  EObjTimelineZone zone;
+  if( lvb.empty() )
+  {
+    zone.errors.emplace_back( "This territory has no layout." );
+    return zone;
+  }
+
+  std::unordered_map< uint32_t, std::string > sharedGroups;
+  auto collectPlacements = [&]( const std::vector< LGB_GROUP >& groups, const std::string& path )
+  {
+    for( const auto& group : groups )
+    {
+      for( const auto& pEntry : group.entries )
+      {
+        if( pEntry->getType() == eAssetType::SharedGroup )
+        {
+          const auto& sg = static_cast< const SharedGroupEntry& >( *pEntry );
+          auto [ it, inserted ] = sharedGroups.emplace( sg.header.InstanceID, sg.AssetPath );
+          if( !inserted && it->second != sg.AssetPath )
+            it->second.clear();
+        }
+        else if( pEntry->getType() == eAssetType::EventObject )
+        {
+          const auto& obj = static_cast< const EventObjectEntry& >( *pEntry );
+          zone.objects.push_back( { obj.header.BaseId, obj.header.InstanceID, obj.header.BoundInstanceID,
+                                    obj.name, path + " / " + group.name, {}, {} } );
+        }
+      }
+    }
+  };
+
+  const LGB_FILE::AssetTypeFilter filter = []( eAssetType type )
+  {
+    return type == eAssetType::EventObject || type == eAssetType::SharedGroup;
+  };
+  auto pGameData = exd.getGameData();
+  const auto path = "bg/" + lvb + ".lvb";
+  auto file = pGameData->getFile( path );
+  LVB_FILE layout( file->access_data_sections().at( 0 ), &filter );
+  collectPlacements( layout.groups, path );
+  for( const auto& layerPath : layout.layerPaths )
+  {
+    try
+    {
+      auto layerFile = pGameData->getFile( layerPath );
+      auto& data = layerFile->access_data_sections().at( 0 );
+      LGB_FILE layer( data.data(), data.size(), &filter );
+      collectPlacements( layer.groups, layerPath );
+    }
+    catch( const std::exception& error )
+    {
+      zone.errors.push_back( layerPath + ": " + error.what() );
+    }
+  }
+
+  for( auto& obj : zone.objects )
+  {
+    try
+    {
+      auto row = exd.getRow< Excel::EObj >( obj.baseId );
+      if( row )
+      {
+        auto name = row->getString( row->data().Text.SGL );
+        if( !name.empty() )
+          obj.name = name;
+      }
+      if( obj.boundId )
+      {
+        auto it = sharedGroups.find( obj.boundId );
+        if( it != sharedGroups.end() )
+          obj.path = it->second;
+        if( obj.path.empty() )
+          obj.status = "Bound placement could not be resolved to a shared group.";
+      }
+      else
+      {
+        obj.path = exd.getEObjSharedGroupPath( obj.baseId );
+        if( obj.path.empty() )
+          obj.status = "No shared group assigned.";
+      }
+    }
+    catch( const std::exception& error )
+    {
+      obj.status = error.what();
+    }
+  }
+  return zone;
+}
+
 void ZoneEditor::showEObjTimelines()
 {
   auto& game = Engine::Service< xiv::dat::GameData >::ref();
@@ -5313,7 +5405,7 @@ void ZoneEditor::showEObjTimelines()
     try
     {
       auto& exd = Engine::Service< Sapphire::Data::ExdData >::ref();
-      m_timelineZone = EObjTimelines::readZone( game, exd, m_selectedZone->lvb );
+      m_timelineZone = loadEObjPlacements( exd, m_selectedZone->lvb );
     }
     catch( const std::exception& error )
     {
@@ -5351,7 +5443,8 @@ void ZoneEditor::showEObjTimelines()
           try
           {
             auto file = game.getFile( obj.path );
-            m_timelineMapping = EObjTimelines::readMapping( file->access_data_sections().at( 0 ) );
+            const auto& data = file->get_data_sections().at( 0 );
+            m_timelineMapping.emplace( LayoutSection{ data.data(), data.size() } );
             obj.status.clear();
           }
           catch( const std::exception& error )

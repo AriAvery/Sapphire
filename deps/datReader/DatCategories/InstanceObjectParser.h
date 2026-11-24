@@ -81,6 +81,15 @@ public:
   SGData header;
   std::string AssetPath;
 
+  SharedGroupEntry( char* buf, size_t offset, const SGData& sg, std::string entryName, std::string path ) :
+    header( sg ), AssetPath( std::move( path ) )
+  {
+    m_buf = buf;
+    m_offset = static_cast< uint32_t >( offset );
+    InstanceObjectEntry::header = header;
+    name = std::move( entryName );
+  }
+
   SharedGroupEntry( char* buf, size_t offset ) : InstanceObjectEntry( buf, offset )
   {
     header = *reinterpret_cast< SGData* >( buf + offset );
@@ -117,6 +126,14 @@ class EventObjectEntry : public InstanceObjectEntry
 {
 public:
   EObjData header;
+
+  EventObjectEntry( char* buf, size_t offset, const EObjData& obj, std::string entryName ) : header( obj )
+  {
+    m_buf = buf;
+    m_offset = static_cast< uint32_t >( offset );
+    InstanceObjectEntry::header = header;
+    name = std::move( entryName );
+  }
 
   EventObjectEntry( char* buf, size_t offset ) : InstanceObjectEntry( buf, offset )
   {
